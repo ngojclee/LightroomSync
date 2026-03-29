@@ -33,6 +33,7 @@ type CatalogSyncOrchestrator struct {
 
 	getAutoSync   func() bool
 	getLastSynced func() string
+	getMaxBackups func() int
 	setLastSynced func(string) error
 	logf          func(string, ...any)
 
@@ -48,6 +49,7 @@ type OrchestratorOptions struct {
 	Manifest      manifestStore
 	GetAutoSync   func() bool
 	GetLastSynced func() string
+	GetMaxBackups func() int
 	SetLastSynced func(string) error
 	Logf          func(string, ...any)
 }
@@ -67,6 +69,7 @@ func NewCatalogSyncOrchestrator(opts OrchestratorOptions) *CatalogSyncOrchestrat
 		manifest:        opts.Manifest,
 		getAutoSync:     opts.GetAutoSync,
 		getLastSynced:   opts.GetLastSynced,
+		getMaxBackups:   opts.GetMaxBackups,
 		setLastSynced:   opts.SetLastSynced,
 		logf:            logf,
 		pendingManifest: nil,
@@ -188,6 +191,19 @@ func (o *CatalogSyncOrchestrator) enqueueManifestLocked(manifest syncpkg.Manifes
 		OperationID:    operationID,
 		MaxRunDuration: 120 * time.Second,
 		Execute: func(ctx context.Context) error {
+			maxBackups := 5
+			if o.getMaxBackups != nil && o.getMaxBackups() > 0 {
+				maxBackups = o.getMaxBackups()
+			}
+
+			if _, err := syncpkg.CreatePreSyncBackup(ctx, o.catalogDir, o.machine, maxBackups, time.Now().UTC()); err != nil {
+				return fmt.Errorf("create pre-sync backup: %w", err)
+			}
+
+			if _, err := syncpkg.CleanupZipRetention(o.backupDir, maxBackups); err != nil {
+				o.logf("[WARN] network backup retention cleanup failed: %v", err)
+			}
+
 			zipPath := filepath.Join(o.backupDir, filepath.FromSlash(manifest.ZipFile))
 			return syncpkg.RestoreCatalogFromZip(ctx, zipPath, o.catalogDir, syncpkg.DefaultRestoreOptions())
 		},

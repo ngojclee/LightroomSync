@@ -23,6 +23,7 @@
 - Sleep/resume resilience is now implemented via gap-based resume detection with forced post-resume network revalidation.
 - Catalog core now has safe restore primitives: zip integrity validation, zip-slip protection, pre-extract cleanup, and wrapper-folder flatten support.
 - Catalog orchestration now includes startup manifest check, pending sync while Lightroom is open, manifest write on local backup detection, and last-synced timestamp update on successful network sync.
+- Retention policy now includes automatic pre-sync backup snapshots and zip retention cleanup for both pre-sync and network backup locations.
 
 ## 1. Motivation & Problem Statement
 

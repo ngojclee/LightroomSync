@@ -117,6 +117,9 @@ func main() {
 			GetLastSynced: func() string {
 				return cfgMgr.Get().LastSyncedTimestamp
 			},
+			GetMaxBackups: func() int {
+				return cfgMgr.Get().MaxCatalogBackups
+			},
 			SetLastSynced: cfgMgr.SetLastSyncedTimestamp,
 			Logf:          log.Printf,
 		})

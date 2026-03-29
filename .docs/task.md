@@ -129,8 +129,8 @@
 
 ### 4.4 Retention
 
-- [ ] Implement pre-sync backup folder policy
-- [ ] Implement retention cleanup for pre-sync and network backups
+- [x] Implement pre-sync backup folder policy
+- [x] Implement retention cleanup for pre-sync and network backups
 
 ## Phase 5: Preset & Watermark Sync
 
