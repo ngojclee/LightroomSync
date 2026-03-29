@@ -1,0 +1,111 @@
+// Package ipc defines the contract between Agent and UI processes.
+// Communication is over Windows named pipes.
+package ipc
+
+import "time"
+
+// PipeName is the named pipe address for Agent ↔ UI communication.
+const PipeName = `\\.\pipe\LightroomSyncIPC`
+
+// IPC defaults.
+const (
+	DefaultConnectTimeout = 1500 * time.Millisecond
+	DefaultRequestTimeout = 3 * time.Second
+)
+
+// Command types sent from UI to Agent.
+type CommandType string
+
+const (
+	CmdPing           CommandType = "ping"
+	CmdGetStatus      CommandType = "get_status"
+	CmdGetConfig      CommandType = "get_config"
+	CmdSaveConfig     CommandType = "save_config"
+	CmdSyncNow        CommandType = "sync_now"
+	CmdSyncBackup     CommandType = "sync_backup"
+	CmdGetBackups     CommandType = "get_backups"
+	CmdSubscribeLogs  CommandType = "subscribe_logs"
+	CmdPauseSync      CommandType = "pause_sync"
+	CmdResumeSync     CommandType = "resume_sync"
+	CmdCheckUpdate    CommandType = "check_update"
+	CmdDownloadUpdate CommandType = "download_update"
+)
+
+// Request is a message from UI to Agent.
+type Request struct {
+	ID      string      `json:"id"`
+	Command CommandType `json:"command"`
+	Payload any         `json:"payload,omitempty"`
+}
+
+// Response is a message from Agent to UI.
+type Response struct {
+	ID      string `json:"id"`
+	Success bool   `json:"success"`
+	Data    any    `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Code    string `json:"code,omitempty"`
+}
+
+// Event is a push message from Agent to UI (for log stream, status changes, etc.).
+type Event struct {
+	Type    EventType `json:"type"`
+	Payload any       `json:"payload,omitempty"`
+}
+
+// EventType for pushed events.
+type EventType string
+
+const (
+	EventStatusChanged  EventType = "status:changed"
+	EventLogEntry       EventType = "log:entry"
+	EventSyncStarted    EventType = "sync:started"
+	EventSyncCompleted  EventType = "sync:completed"
+	EventSyncFailed     EventType = "sync:failed"
+	EventUpdateProgress EventType = "update:progress"
+)
+
+// Standard response codes used by Agent/UI contract.
+const (
+	CodeOK            = "ok"
+	CodeBadRequest    = "bad_request"
+	CodeTimeout       = "timeout"
+	CodeUnknownCmd    = "unknown_command"
+	CodeInternalError = "internal_error"
+	CodeAgentOffline  = "agent_offline"
+)
+
+// --- Payload types ---
+
+// AppStatus represents the full application state snapshot.
+type AppStatus struct {
+	TrayColor        string `json:"tray_color"` // green, blue, orange, red
+	StatusText       string `json:"status_text"`
+	LightroomRunning bool   `json:"lightroom_running"`
+	SyncInProgress   bool   `json:"sync_in_progress"`
+	SyncPaused       bool   `json:"sync_paused"`
+	LastBackup       string `json:"last_backup,omitempty"`
+	LockMachine      string `json:"lock_machine,omitempty"`
+	LockStatus       string `json:"lock_status,omitempty"`
+	AutoSync         bool   `json:"auto_sync"`
+}
+
+// BackupInfo describes a single backup zip file.
+type BackupInfo struct {
+	Path        string    `json:"path"`
+	CatalogName string    `json:"catalog_name"`
+	Size        int64     `json:"size"`
+	ModTime     time.Time `json:"mod_time"`
+}
+
+// LogEntry represents a single log line.
+type LogEntry struct {
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"` // INFO, WARNING, ERROR, DEBUG
+	Message   string    `json:"message"`
+}
+
+// SyncBackupPayload is the payload for CmdSyncBackup.
+type SyncBackupPayload struct {
+	ZipPath string `json:"zip_path"`
+}

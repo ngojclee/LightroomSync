@@ -1,0 +1,39 @@
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Build output
+/build/bin/
+/dist/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/wailsjs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Env
+.env
+.env.local
+
+# Temp
+temp_scripts/
+*.log

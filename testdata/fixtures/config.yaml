@@ -1,0 +1,19 @@
+# LightroomSync Configuration
+# This file is saved in your Local AppData directory
+
+backup_folder: Z:\LightroomSync\Catalog
+catalog_path: C:\Users\Username\Pictures\Lightroom
+start_with_windows: true
+start_minimized: false
+minimize_to_tray: true
+auto_sync: true
+heartbeat_interval: 30
+check_interval: 60
+lock_timeout: 120
+max_catalog_backups: 5
+preset_sync_enabled: true
+preset_categories:
+- Export Presets
+- Develop Presets
+- Watermarks
+last_synced_timestamp: '2026-03-29T15:42:30.123456'
