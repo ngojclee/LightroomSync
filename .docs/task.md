@@ -73,8 +73,8 @@
 
 ### 3.1 Lightroom Monitor
 
-- [ ] Implement process detection (`CreateToolhelp32Snapshot`)
-- [ ] Edge-trigger events: started/stopped only on state transition
+- [x] Implement process detection (`CreateToolhelp32Snapshot`)
+- [x] Edge-trigger events: started/stopped only on state transition
 - [ ] Add monitor health metrics and error logs
 
 ### 3.2 Lock Manager

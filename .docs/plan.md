@@ -13,6 +13,7 @@
 - IPC implementation now has named-pipe server/client, timeout/error code contract, startup reconnect logic, and integration tests for ping/status roundtrip.
 - Lock manager now has heartbeat loop with retry/backoff and best-effort OFFLINE write on shutdown.
 - Event coordinator now includes a bounded single-flight sync worker queue, wired to `sync_now` IPC command.
+- Lightroom monitor loop is wired in Agent with edge-trigger started/stopped events and error logging hooks.
 
 ## 1. Motivation & Problem Statement
 

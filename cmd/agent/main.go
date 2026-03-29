@@ -82,6 +82,28 @@ func main() {
 	syncWorker := coordinator.NewSyncWorker(16, appState, eventBus)
 	go syncWorker.Run(ctx)
 
+	// --- Start Lightroom process monitor ---
+	processDetector := winplatform.NewProcessDetector()
+	lightroomMonitor := monitor.NewLightroomMonitor(
+		processDetector,
+		time.Duration(cfg.CheckInterval)*time.Second,
+		[]string{"Lightroom.exe"},
+		monitor.LightroomHooks{
+			OnStarted: func() {
+				appState.SetLightroomRunning(true)
+				eventBus.Emit(coordinator.InternalEvent{Type: coordinator.EvtLightroomStarted})
+			},
+			OnStopped: func() {
+				appState.SetLightroomRunning(false)
+				eventBus.Emit(coordinator.InternalEvent{Type: coordinator.EvtLightroomStopped})
+			},
+			OnError: func(err error) {
+				log.Printf("[WARN] lightroom monitor error: %v", err)
+			},
+		},
+	)
+	go lightroomMonitor.Run(ctx)
+
 	// --- Start lock heartbeat manager ---
 	if cfg.CatalogPath != "" {
 		machine, err := os.Hostname()
