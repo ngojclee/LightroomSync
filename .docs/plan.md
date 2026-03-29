@@ -14,6 +14,7 @@
 - Lock manager now has heartbeat loop with retry/backoff and best-effort OFFLINE write on shutdown.
 - Event coordinator now includes a bounded single-flight sync worker queue, wired to `sync_now` IPC command.
 - Lightroom monitor loop is wired in Agent with edge-trigger started/stopped events and error logging hooks.
+- UI now includes a temporary local web GUI (served by `LightroomSyncUI.exe`) so IPC flows can be tested before Wails Phase 6.
 
 ## 1. Motivation & Problem Statement
 
