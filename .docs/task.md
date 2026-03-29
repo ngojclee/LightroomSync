@@ -108,10 +108,10 @@
 
 ### 4.1 Core Sync
 
-- [ ] Validate zip integrity before extract
-- [ ] Implement zip-slip protection (canonical destination path check)
-- [ ] Cleanup old catalog artifacts before extraction
-- [ ] Support wrapper-folder zip layouts
+- [x] Validate zip integrity before extract
+- [x] Implement zip-slip protection (canonical destination path check)
+- [x] Cleanup old catalog artifacts before extraction
+- [x] Support wrapper-folder zip layouts
 
 ### 4.2 Manifest Logic
 
