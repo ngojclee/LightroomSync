@@ -25,6 +25,9 @@
 - Catalog orchestration now includes startup manifest check, pending sync while Lightroom is open, manifest write on local backup detection, and last-synced timestamp update on successful network sync.
 - Retention policy now includes automatic pre-sync backup snapshots and zip retention cleanup for both pre-sync and network backup locations.
 - App status now exposes monitor health metrics (error counters + last resume gap) for UI diagnostics.
+- Preset sync core is now implemented with deletion-aware state tracking, push/pull reconciliation, and mtime tolerance to reduce false conflicts.
+- Dynamic preset category discovery/filtering is now added with remote category bootstrap under `Presets/`.
+- Watermark/logo sync compatibility is now implemented for `.lrtemplate` and `.lrsmv`, including logo copy dedupe (size check) and path rewrite for local/network contexts.
 
 ## 1. Motivation & Problem Statement
 

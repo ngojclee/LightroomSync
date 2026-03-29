@@ -136,22 +136,22 @@
 
 ### 5.1 Preset Sync
 
-- [ ] Implement push + pull with deletion-aware state
-- [ ] Use mtime tolerance to reduce false conflict
-- [ ] Commit state file only after successful sync cycle
+- [x] Implement push + pull with deletion-aware state
+- [x] Use mtime tolerance to reduce false conflict
+- [x] Commit state file only after successful sync cycle
 
 ### 5.2 Category Discovery
 
-- [ ] Scan Lightroom preset directories dynamically
-- [ ] Filter categories using user config
-- [ ] Ensure remote category folder bootstrap
+- [x] Scan Lightroom preset directories dynamically
+- [x] Filter categories using user config
+- [x] Ensure remote category folder bootstrap
 
 ### 5.3 Watermark/Logo
 
-- [ ] Parse `.lrtemplate` and `.lrsmv` image paths
-- [ ] Copy logos to shared `Logos/` folder
-- [ ] Rewrite paths for local and network contexts
-- [ ] Skip redundant copy when size/hash unchanged
+- [x] Parse `.lrtemplate` and `.lrsmv` image paths
+- [x] Copy logos to shared `Logos/` folder
+- [x] Rewrite paths for local and network contexts
+- [x] Skip redundant copy when size/hash unchanged
 
 ## Phase 6: UI (Wails, IPC-Driven)
 

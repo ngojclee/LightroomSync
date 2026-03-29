@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -74,6 +75,10 @@ func main() {
 	if migrationHint != "" {
 		appState.SetMigrationHint(migrationHint)
 	}
+	presetLocalRoot, presetRootErr := syncpkg.DefaultLightroomPresetRoot()
+	if presetRootErr != nil {
+		log.Printf("[WARN] Preset sync local root unavailable: %v", presetRootErr)
+	}
 
 	var orchestrator *coordinator.CatalogSyncOrchestrator
 
@@ -103,7 +108,56 @@ func main() {
 		watchdog.Run(ctx)
 	})
 
-	if orchestrator != nil {
+	enqueuePresetSync := func(trigger string) {
+		current := cfgMgr.Get()
+		if !current.PresetSyncEnabled {
+			return
+		}
+		if strings.TrimSpace(current.BackupFolder) == "" {
+			return
+		}
+		if strings.TrimSpace(presetLocalRoot) == "" {
+			log.Printf("[WARN] Skip preset sync (%s): APPDATA Lightroom path unavailable", trigger)
+			return
+		}
+
+		manager := syncpkg.NewPresetSyncManager(syncpkg.PresetSyncOptions{
+			BackupDir:         current.BackupFolder,
+			LocalLightroomDir: presetLocalRoot,
+			Categories:        current.PresetCategories,
+			MTimeTolerance:    2 * time.Second,
+			Logf:              log.Printf,
+		})
+
+		jobName := "preset_sync_" + strings.ToLower(strings.TrimSpace(trigger))
+		opID := fmt.Sprintf("%s_%d", jobName, time.Now().UTC().UnixNano())
+		err := syncWorker.Enqueue(coordinator.SyncJob{
+			Name:           jobName,
+			OperationID:    opID,
+			MaxRunDuration: 90 * time.Second,
+			Execute: func(ctx context.Context) error {
+				summary, err := manager.Sync(ctx)
+				if err != nil {
+					return err
+				}
+				log.Printf(
+					"[INFO] Preset sync done trigger=%s pull=%d push=%d delete=%d logos=%d tracked=%d",
+					trigger,
+					summary.Pulled,
+					summary.Pushed,
+					summary.Deleted,
+					summary.LogosCopied,
+					summary.Tracked,
+				)
+				return nil
+			},
+		})
+		if err != nil {
+			log.Printf("[WARN] Failed to enqueue preset sync (%s): %v", trigger, err)
+		}
+	}
+
+	if strings.TrimSpace(cfg.CatalogPath) != "" && strings.TrimSpace(cfg.BackupFolder) != "" {
 		orchestrator = coordinator.NewCatalogSyncOrchestrator(coordinator.OrchestratorOptions{
 			Machine:    hostNameOrUnknown(),
 			CatalogDir: cfg.CatalogPath,
@@ -155,6 +209,9 @@ func main() {
 			if err := orchestrator.OnSyncCompleted(result.JobName); err != nil {
 				log.Printf("[WARN] failed to update last_synced_timestamp: %v", err)
 			}
+			if isNetworkSyncJobName(result.JobName) {
+				go enqueuePresetSync("after_network_sync")
+			}
 		})
 
 		startManaged(ctx, &wg, "startup-manifest-check", func(ctx context.Context) {
@@ -170,6 +227,10 @@ func main() {
 			}
 		})
 	}
+
+	eventBus.On(coordinator.EvtLightroomStopped, func(evt coordinator.InternalEvent) {
+		go enqueuePresetSync("lightroom_stopped")
+	})
 
 	// --- Start Lightroom process monitor ---
 	processDetector := winplatform.NewProcessDetector()
@@ -194,6 +255,18 @@ func main() {
 	)
 	startManaged(ctx, &wg, "lightroom-monitor", func(ctx context.Context) {
 		lightroomMonitor.Run(ctx)
+	})
+
+	startManaged(ctx, &wg, "startup-preset-sync", func(ctx context.Context) {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(2 * time.Second):
+		}
+		if appState.Snapshot().LightroomRunning {
+			return
+		}
+		enqueuePresetSync("startup")
 	})
 
 	// --- Start network share health monitor (circuit breaker + recovery) ---
@@ -450,4 +523,8 @@ func hostNameOrUnknown() string {
 		return "UNKNOWN"
 	}
 	return host
+}
+
+func isNetworkSyncJobName(jobName string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(jobName)), "network_sync_")
 }
