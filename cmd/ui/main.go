@@ -18,6 +18,8 @@ import (
 
 var Version = "dev"
 
+const uiHarnessWindowTitle = "Lightroom Sync - Temporary GUI Test"
+
 type actionEnvelope struct {
 	OK      bool   `json:"ok"`
 	ID      string `json:"id,omitempty"`
@@ -48,6 +50,20 @@ func main() {
 		log.Printf("[WARN] Temporary GUI harness currently supports Windows only. Use --action for headless checks.")
 		return
 	}
+
+	guard, acquired, err := acquireUISingleInstance()
+	if err != nil {
+		log.Fatalf("Failed to acquire UI single-instance guard: %v", err)
+	}
+	if !acquired {
+		if err := focusExistingUIWindow(); err != nil {
+			log.Printf("[WARN] Another UI instance is running but could not be focused: %v", err)
+		} else {
+			log.Println("[INFO] Existing UI instance focused.")
+		}
+		return
+	}
+	defer guard.Release()
 
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), 2200*time.Millisecond)
 	defer cancelWait()
@@ -206,7 +222,7 @@ $exe = '%s'
 $pipe = '%s'
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'Lightroom Sync - Temporary GUI Test'
+$form.Text = '%s'
 $form.Width = 880
 $form.Height = 620
 $form.StartPosition = 'CenterScreen'
@@ -360,5 +376,5 @@ $timer.Start()
 
 $form.Add_Shown({ Invoke-Action 'status' })
 [void]$form.ShowDialog()
-`, escapedExe, escapedPipe)
+`, escapedExe, escapedPipe, strings.ReplaceAll(uiHarnessWindowTitle, "'", "''"))
 }

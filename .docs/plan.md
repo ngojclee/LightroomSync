@@ -16,6 +16,7 @@
 - Lightroom monitor loop is wired in Agent with edge-trigger started/stopped events and error logging hooks.
 - UI now includes a temporary Windows Forms GUI harness (launched by `LightroomSyncUI.exe`) so IPC flows can be tested before Wails Phase 6.
 - Backup monitor is now wired with recursive zip discovery, duplicate suppression by signature, and configurable polling interval.
+- UI now enforces single-instance behavior and attempts to focus the existing window on relaunch.
 
 ## 1. Motivation & Problem Statement
 
