@@ -61,7 +61,7 @@
 
 - [x] Detect legacy config paths (Python version locations)
 - [x] Migrate legacy config once, preserve original backup copy
-- [ ] Emit migration log event and status hint in UI
+- [x] Emit migration log event and status hint in UI
 
 ### 2.3 Windows Integration
 

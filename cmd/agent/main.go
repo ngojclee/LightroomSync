@@ -44,10 +44,12 @@ func main() {
 	if err := cfgMgr.Load(); err != nil {
 		log.Printf("[WARN] Failed to load config, using defaults: %v", err)
 	}
+	migrationHint := ""
 	if migrated, source, err := cfgMgr.MigrateFromLegacyPaths(config.LegacyPaths()); err != nil {
 		log.Printf("[WARN] Legacy config migration failed: %v", err)
 	} else if migrated {
 		log.Printf("[INFO] Migrated legacy config from: %s", source)
+		migrationHint = "Đã migrate config cũ từ: " + source
 	}
 
 	cfg := cfgMgr.Get()
@@ -65,6 +67,9 @@ func main() {
 	eventBus := coordinator.NewEventBus(64)
 	appState := coordinator.NewAppState()
 	appState.SetAutoSync(cfg.AutoSync)
+	if migrationHint != "" {
+		appState.SetMigrationHint(migrationHint)
+	}
 
 	// --- Context for graceful shutdown ---
 	ctx, cancel := context.WithCancel(context.Background())

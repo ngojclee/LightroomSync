@@ -9,7 +9,7 @@
 
 - Phase 0 foundations completed: fixtures + compatibility tests + IPC contract skeleton + platform boundary folders/tags.
 - Phase 1 scaffold mostly completed: module layout, Agent/UI entrypoints, Makefile, binaries build.
-- Phase 2 in progress: config migration and startup-registry wiring implemented; UI migration status signaling still pending.
+- Phase 2 baseline completed: config migration, startup-registry wiring, and UI migration hint signaling are implemented.
 - IPC implementation now has named-pipe server/client, timeout/error code contract, startup reconnect logic, and integration tests for ping/status roundtrip.
 - Lock manager now has heartbeat loop with retry/backoff and best-effort OFFLINE write on shutdown.
 - Event coordinator now includes a bounded single-flight sync worker queue, wired to `sync_now` IPC command.

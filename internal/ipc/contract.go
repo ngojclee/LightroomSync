@@ -87,6 +87,7 @@ type AppStatus struct {
 	LastBackup       string `json:"last_backup,omitempty"`
 	LockMachine      string `json:"lock_machine,omitempty"`
 	LockStatus       string `json:"lock_status,omitempty"`
+	MigrationHint    string `json:"migration_hint,omitempty"`
 	AutoSync         bool   `json:"auto_sync"`
 }
 

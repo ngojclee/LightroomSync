@@ -19,6 +19,7 @@ type AppState struct {
 	lastBackup       string
 	lockMachine      string
 	lockStatus       string
+	migrationHint    string
 	autoSync         bool
 }
 
@@ -42,6 +43,7 @@ func (s *AppState) Snapshot() ipc.AppStatus {
 		LastBackup:       s.lastBackup,
 		LockMachine:      s.lockMachine,
 		LockStatus:       s.lockStatus,
+		MigrationHint:    s.migrationHint,
 		AutoSync:         s.autoSync,
 	}
 }
@@ -112,6 +114,12 @@ func (s *AppState) SetLastBackup(info string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastBackup = info
+}
+
+func (s *AppState) SetMigrationHint(hint string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.migrationHint = hint
 }
 
 func (s *AppState) SetAutoSync(v bool) {

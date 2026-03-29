@@ -33,5 +33,10 @@ func main() {
 		return
 	}
 	log.Printf("[INFO] Connected to Agent. IPC code=%s success=%v", resp.Code, resp.Success)
+	if status, ok := resp.Data.(map[string]any); ok {
+		if hint, ok := status["migration_hint"].(string); ok && hint != "" {
+			log.Printf("[INFO] Migration hint: %s", hint)
+		}
+	}
 	log.Println("[INFO] UI process placeholder — Wails integration pending Phase 6")
 }
