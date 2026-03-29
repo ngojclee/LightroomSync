@@ -17,6 +17,8 @@
 - UI now includes a temporary Windows Forms GUI harness (launched by `LightroomSyncUI.exe`) so IPC flows can be tested before Wails Phase 6.
 - Backup monitor is now wired with recursive zip discovery, duplicate suppression by signature, and configurable polling interval.
 - UI now enforces single-instance behavior and attempts to focus the existing window on relaunch.
+- Agent now has managed goroutine lifecycle and graceful shutdown (context cancel, IPC close, OFFLINE lock best-effort, bounded wait for worker stop).
+- Resilience layer now includes an operation watchdog (`op_id` + deadline), integrated with sync worker timeout alerts.
 
 ## 1. Motivation & Problem Statement
 

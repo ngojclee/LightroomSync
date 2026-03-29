@@ -41,7 +41,7 @@
 
 - [x] Implement `cmd/agent/main.go` with single-instance mutex
 - [ ] Add tray bootstrap (`internal/tray`) with status label + menu items
-- [ ] Add graceful shutdown flow (stop workers, write OFFLINE, quit tray)
+- [x] Add graceful shutdown flow (stop workers, write OFFLINE, quit tray)
 
 ### 1.3 UI Skeleton
 
@@ -93,7 +93,7 @@
 
 ### 3.4 Resilience Layer
 
-- [ ] Add operation watchdog with `op_id` and deadline
+- [x] Add operation watchdog with `op_id` and deadline
 - [ ] Add circuit breaker for unstable network share
 - [ ] Add reconnect recovery workflow after share returns
 - [ ] Add sleep/resume handler: force state revalidation post-resume

@@ -94,3 +94,47 @@ func TestSyncWorker_ReturnsQueueFull(t *testing.T) {
 		t.Fatalf("err = %v, want %v", err, ErrQueueFull)
 	}
 }
+
+func TestSyncWorker_WatchdogAlertsOnTimeout(t *testing.T) {
+	alertCh := make(chan WatchdogAlert, 1)
+	wd := NewWatchdog(5*time.Millisecond, func(alert WatchdogAlert) {
+		select {
+		case alertCh <- alert:
+		default:
+		}
+	})
+
+	worker := NewSyncWorker(2, NewAppState(), NewEventBus(4))
+	worker.SetWatchdog(wd)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go wd.Run(ctx)
+	go worker.Run(ctx)
+
+	err := worker.Enqueue(SyncJob{
+		Name:           "slow-sync",
+		OperationID:    "op-timeout-1",
+		MaxRunDuration: 20 * time.Millisecond,
+		Execute: func(ctx context.Context) error {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(90 * time.Millisecond):
+				return nil
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	select {
+	case alert := <-alertCh:
+		if alert.OperationID != "op-timeout-1" {
+			t.Fatalf("alert.OperationID = %q, want %q", alert.OperationID, "op-timeout-1")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected watchdog timeout alert")
+	}
+}

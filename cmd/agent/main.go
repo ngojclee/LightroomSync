@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"time"
 
@@ -72,16 +73,31 @@ func main() {
 		appState.SetMigrationHint(migrationHint)
 	}
 
-	// --- Context for graceful shutdown ---
+	// --- Context and goroutine lifecycle ---
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+	var wg sync.WaitGroup
+	shutdownMachine := hostNameOrUnknown()
 
 	// --- Start event loop ---
-	go eventBus.Run(ctx)
+	startManaged(ctx, &wg, "event-bus", func(ctx context.Context) {
+		eventBus.Run(ctx)
+	})
 
 	// --- Start single-flight sync worker ---
 	syncWorker := coordinator.NewSyncWorker(16, appState, eventBus)
-	go syncWorker.Run(ctx)
+	watchdog := coordinator.NewWatchdog(250*time.Millisecond, func(alert coordinator.WatchdogAlert) {
+		log.Printf("[WARN] operation timeout op_id=%s name=%s started_at=%s deadline=%s",
+			alert.OperationID, alert.OperationName, alert.StartedAt.Format(time.RFC3339), alert.DeadlineAt.Format(time.RFC3339))
+		appState.SetWarning("Một thao tác đồng bộ đang chậm bất thường")
+	})
+	syncWorker.SetWatchdog(watchdog)
+	startManaged(ctx, &wg, "sync-worker", func(ctx context.Context) {
+		syncWorker.Run(ctx)
+	})
+	startManaged(ctx, &wg, "operation-watchdog", func(ctx context.Context) {
+		watchdog.Run(ctx)
+	})
 
 	// --- Start Lightroom process monitor ---
 	processDetector := winplatform.NewProcessDetector()
@@ -103,7 +119,9 @@ func main() {
 			},
 		},
 	)
-	go lightroomMonitor.Run(ctx)
+	startManaged(ctx, &wg, "lightroom-monitor", func(ctx context.Context) {
+		lightroomMonitor.Run(ctx)
+	})
 
 	// --- Start backup monitor ---
 	if cfg.BackupFolder != "" {
@@ -121,17 +139,16 @@ func main() {
 				log.Printf("[WARN] backup monitor error: %v", err)
 			},
 		})
-		go backupMonitor.Run(ctx)
+		startManaged(ctx, &wg, "backup-monitor", func(ctx context.Context) {
+			backupMonitor.Run(ctx)
+		})
 	}
 
 	// --- Start lock heartbeat manager ---
+	var lockMgr *monitor.LockManager
 	if cfg.CatalogPath != "" {
-		machine, err := os.Hostname()
-		if err != nil || machine == "" {
-			machine = "UNKNOWN"
-		}
-		lockMgr := monitor.NewLockManager(cfg.CatalogPath)
-		heartbeat := monitor.NewHeartbeatManager(lockMgr, machine, monitor.HeartbeatConfig{
+		lockMgr = monitor.NewLockManager(cfg.CatalogPath)
+		heartbeat := monitor.NewHeartbeatManager(lockMgr, shutdownMachine, monitor.HeartbeatConfig{
 			Interval:        time.Duration(cfg.HeartbeatInterval) * time.Second,
 			RetryBase:       500 * time.Millisecond,
 			RetryMax:        5 * time.Second,
@@ -143,11 +160,13 @@ func main() {
 			},
 			OnError: func(err error) {
 				log.Printf("[WARN] lock heartbeat error: %v", err)
-				appState.SetLock(machine, "ERROR")
+				appState.SetLock(shutdownMachine, "ERROR")
 			},
 		})
 
-		go heartbeat.Run(ctx)
+		startManaged(ctx, &wg, "lock-heartbeat", func(ctx context.Context) {
+			heartbeat.Run(ctx)
+		})
 	}
 
 	// --- Start IPC server (UI <-> Agent) ---
@@ -167,7 +186,9 @@ func main() {
 			}
 		case ipc.CmdSyncNow:
 			err := syncWorker.Enqueue(coordinator.SyncJob{
-				Name: "manual_sync_now",
+				Name:           "manual_sync_now",
+				OperationID:    "manual_sync_now",
+				MaxRunDuration: 5 * time.Second,
 				Execute: func(ctx context.Context) error {
 					// Placeholder sync action for Phase 3 queue wiring.
 					select {
@@ -198,11 +219,11 @@ func main() {
 			}
 		}
 	})
-	go func() {
+	startManaged(ctx, &wg, "ipc-server", func(ctx context.Context) {
 		if err := ipcServer.Start(ctx); err != nil {
 			log.Printf("[ERROR] IPC server stopped: %v", err)
 		}
-	}()
+	})
 
 	// --- Start tray icon ---
 	// TODO(phase1.2): Wire real tray with systray library
@@ -216,9 +237,62 @@ func main() {
 
 	<-sigCh
 	log.Println("[INFO] Shutting down Agent...")
+
+	// Stop managed loops.
 	cancel()
+
+	// Ensure listener unblocks quickly.
 	_ = ipcServer.Close()
 
-	// TODO: Write OFFLINE lock, stop heartbeat, cleanup
+	// Best-effort OFFLINE write in case shutdown races with heartbeat cancel.
+	if lockMgr != nil {
+		lockCtx, lockCancel := context.WithTimeout(context.Background(), 2*time.Second)
+		writeErr := lockMgr.WriteLock(lockCtx, monitor.LockInfo{
+			Status:    monitor.LockOffline,
+			Machine:   shutdownMachine,
+			Timestamp: time.Now().UTC(),
+		})
+		lockCancel()
+		if writeErr != nil {
+			log.Printf("[WARN] Failed to write OFFLINE lock during shutdown: %v", writeErr)
+		}
+	}
+
+	if !waitGroupWithTimeout(&wg, 5*time.Second) {
+		log.Println("[WARN] Shutdown timed out waiting for background workers.")
+	}
+
 	log.Println("[INFO] Agent stopped.")
+}
+
+func startManaged(ctx context.Context, wg *sync.WaitGroup, name string, run func(context.Context)) {
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		run(ctx)
+		log.Printf("[DEBUG] worker stopped: %s", name)
+	}()
+}
+
+func waitGroupWithTimeout(wg *sync.WaitGroup, timeout time.Duration) bool {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		wg.Wait()
+	}()
+
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
+}
+
+func hostNameOrUnknown() string {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		return "UNKNOWN"
+	}
+	return host
 }

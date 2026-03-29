@@ -3,6 +3,8 @@ package coordinator
 import (
 	"context"
 	"errors"
+	"fmt"
+	"time"
 )
 
 var (
@@ -14,8 +16,10 @@ var (
 
 // SyncJob represents one sync task to be executed by the single worker.
 type SyncJob struct {
-	Name    string
-	Execute func(ctx context.Context) error
+	Name           string
+	OperationID    string
+	MaxRunDuration time.Duration
+	Execute        func(ctx context.Context) error
 }
 
 // SyncResult is emitted as event payload on completion or failure.
@@ -26,9 +30,10 @@ type SyncResult struct {
 
 // SyncWorker enforces one-at-a-time sync execution.
 type SyncWorker struct {
-	state *AppState
-	bus   *EventBus
-	queue chan SyncJob
+	state    *AppState
+	bus      *EventBus
+	queue    chan SyncJob
+	watchdog *Watchdog
 }
 
 // NewSyncWorker creates a one-at-a-time worker with bounded queue.
@@ -41,6 +46,11 @@ func NewSyncWorker(queueSize int, state *AppState, bus *EventBus) *SyncWorker {
 		bus:   bus,
 		queue: make(chan SyncJob, queueSize),
 	}
+}
+
+// SetWatchdog attaches an optional operation watchdog for timeout alerts.
+func (w *SyncWorker) SetWatchdog(wd *Watchdog) {
+	w.watchdog = wd
 }
 
 // Enqueue attempts to queue a sync job without blocking.
@@ -72,6 +82,20 @@ func (w *SyncWorker) Run(ctx context.Context) {
 func (w *SyncWorker) process(ctx context.Context, job SyncJob) {
 	w.state.SetSyncing(true)
 	w.bus.Emit(InternalEvent{Type: EvtSyncRequested, Payload: job.Name})
+
+	stopWatch := func() {}
+	if w.watchdog != nil {
+		opID := job.OperationID
+		if opID == "" {
+			opID = fmt.Sprintf("%s-%d", job.Name, time.Now().UTC().UnixNano())
+		}
+		timeout := job.MaxRunDuration
+		if timeout <= 0 {
+			timeout = 30 * time.Second
+		}
+		stopWatch = w.watchdog.Start(opID, job.Name, timeout)
+	}
+	defer stopWatch()
 
 	err := job.Execute(ctx)
 	if err != nil {
