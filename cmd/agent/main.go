@@ -123,6 +123,42 @@ func main() {
 		lightroomMonitor.Run(ctx)
 	})
 
+	// --- Start network share health monitor (circuit breaker + recovery) ---
+	sharePaths := make([]string, 0, 2)
+	if cfg.CatalogPath != "" {
+		sharePaths = append(sharePaths, cfg.CatalogPath)
+	}
+	if cfg.BackupFolder != "" {
+		sharePaths = append(sharePaths, cfg.BackupFolder)
+	}
+	if len(sharePaths) > 0 {
+		shareHealth := monitor.NewShareHealthMonitor(monitor.ShareHealthConfig{
+			CheckInterval:    time.Duration(cfg.CheckInterval) * time.Second,
+			ProbeTimeout:     2 * time.Second,
+			FailureThreshold: 3,
+			OpenTimeout:      2 * time.Duration(cfg.CheckInterval) * time.Second,
+		}, monitor.NewPathProbe(sharePaths), monitor.ShareHealthHooks{
+			OnNetworkLost: func(err error) {
+				log.Printf("[WARN] network share unstable: %v", err)
+				appState.SetWarning("Mất kết nối network share")
+				eventBus.Emit(coordinator.InternalEvent{
+					Type:    coordinator.EvtNetworkLost,
+					Payload: err.Error(),
+				})
+			},
+			OnNetworkRecovered: func() {
+				log.Printf("[INFO] network share recovered")
+				appState.RefreshDerivedStatus()
+				eventBus.Emit(coordinator.InternalEvent{
+					Type: coordinator.EvtNetworkAvailable,
+				})
+			},
+		})
+		startManaged(ctx, &wg, "share-health-monitor", func(ctx context.Context) {
+			shareHealth.Run(ctx)
+		})
+	}
+
 	// --- Start backup monitor ---
 	if cfg.BackupFolder != "" {
 		backupMonitor := monitor.NewBackupMonitor(cfg.BackupFolder, time.Duration(cfg.CheckInterval)*time.Second, monitor.BackupHooks{

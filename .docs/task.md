@@ -94,8 +94,8 @@
 ### 3.4 Resilience Layer
 
 - [x] Add operation watchdog with `op_id` and deadline
-- [ ] Add circuit breaker for unstable network share
-- [ ] Add reconnect recovery workflow after share returns
+- [x] Add circuit breaker for unstable network share
+- [x] Add reconnect recovery workflow after share returns
 - [ ] Add sleep/resume handler: force state revalidation post-resume
 
 ### 3.5 Event Coordinator

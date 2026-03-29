@@ -52,48 +52,21 @@ func (s *AppState) SetLightroomRunning(v bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lightroomRunning = v
-	if v {
-		s.trayColor = "blue"
-		s.statusText = "Lightroom đang chạy"
-	} else {
-		s.trayColor = "green"
-		s.statusText = "Sẵn sàng"
-	}
+	s.recomputeDerivedStatusLocked()
 }
 
 func (s *AppState) SetSyncing(v bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.syncInProgress = v
-	if v {
-		s.trayColor = "red"
-		s.statusText = "Đang đồng bộ..."
-		return
-	}
-
-	if s.syncPaused {
-		s.trayColor = "orange"
-		s.statusText = "Đã tạm dừng đồng bộ"
-		return
-	}
-
-	if s.lightroomRunning {
-		s.trayColor = "blue"
-		s.statusText = "Lightroom đang chạy"
-		return
-	}
-
-	s.trayColor = "green"
-	s.statusText = "Sẵn sàng"
+	s.recomputeDerivedStatusLocked()
 }
 
 func (s *AppState) SetSyncPaused(v bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.syncPaused = v
-	if v {
-		s.statusText = "Đã tạm dừng đồng bộ"
-	}
+	s.recomputeDerivedStatusLocked()
 }
 
 func (s *AppState) SetWarning(text string) {
@@ -128,9 +101,33 @@ func (s *AppState) SetAutoSync(v bool) {
 	s.autoSync = v
 }
 
+// RefreshDerivedStatus clears temporary warning state and restores status from current flags.
+func (s *AppState) RefreshDerivedStatus() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.recomputeDerivedStatusLocked()
+}
+
 // TrayColor returns the current tray icon color.
 func (s *AppState) TrayColor() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.trayColor
+}
+
+func (s *AppState) recomputeDerivedStatusLocked() {
+	switch {
+	case s.syncInProgress:
+		s.trayColor = "red"
+		s.statusText = "Đang đồng bộ..."
+	case s.syncPaused:
+		s.trayColor = "orange"
+		s.statusText = "Đã tạm dừng đồng bộ"
+	case s.lightroomRunning:
+		s.trayColor = "blue"
+		s.statusText = "Lightroom đang chạy"
+	default:
+		s.trayColor = "green"
+		s.statusText = "Sẵn sàng"
+	}
 }
