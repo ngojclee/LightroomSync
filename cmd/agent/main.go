@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -103,6 +104,25 @@ func main() {
 		},
 	)
 	go lightroomMonitor.Run(ctx)
+
+	// --- Start backup monitor ---
+	if cfg.BackupFolder != "" {
+		backupMonitor := monitor.NewBackupMonitor(cfg.BackupFolder, time.Duration(cfg.CheckInterval)*time.Second, monitor.BackupHooks{
+			OnNewBackup: func(info monitor.BackupInfo) {
+				label := filepath.Base(info.Path)
+				appState.SetLastBackup(label)
+				eventBus.Emit(coordinator.InternalEvent{
+					Type:    coordinator.EvtNewBackupDetected,
+					Payload: info.Path,
+				})
+				log.Printf("[INFO] New backup detected: %s", info.Path)
+			},
+			OnError: func(err error) {
+				log.Printf("[WARN] backup monitor error: %v", err)
+			},
+		})
+		go backupMonitor.Run(ctx)
+	}
 
 	// --- Start lock heartbeat manager ---
 	if cfg.CatalogPath != "" {

@@ -15,6 +15,7 @@
 - Event coordinator now includes a bounded single-flight sync worker queue, wired to `sync_now` IPC command.
 - Lightroom monitor loop is wired in Agent with edge-trigger started/stopped events and error logging hooks.
 - UI now includes a temporary Windows Forms GUI harness (launched by `LightroomSyncUI.exe`) so IPC flows can be tested before Wails Phase 6.
+- Backup monitor is now wired with recursive zip discovery, duplicate suppression by signature, and configurable polling interval.
 
 ## 1. Motivation & Problem Statement
 

@@ -87,9 +87,9 @@
 
 ### 3.3 Backup Monitor
 
-- [ ] Implement recursive zip discovery
-- [ ] Track last-seen signature to avoid duplicate emits
-- [ ] Make polling interval configurable
+- [x] Implement recursive zip discovery
+- [x] Track last-seen signature to avoid duplicate emits
+- [x] Make polling interval configurable
 
 ### 3.4 Resilience Layer
 
