@@ -12,6 +12,7 @@
 - Phase 2 in progress: config migration and startup-registry wiring implemented; UI migration status signaling still pending.
 - IPC implementation now has named-pipe server/client, timeout/error code contract, startup reconnect logic, and integration tests for ping/status roundtrip.
 - Lock manager now has heartbeat loop with retry/backoff and best-effort OFFLINE write on shutdown.
+- Event coordinator now includes a bounded single-flight sync worker queue, wired to `sync_now` IPC command.
 
 ## 1. Motivation & Problem Statement
 

@@ -100,7 +100,7 @@
 ### 3.5 Event Coordinator
 
 - [x] Implement typed event bus + buffered channel
-- [ ] Add single sync worker queue (one-at-a-time)
+- [x] Add single sync worker queue (one-at-a-time)
 - [x] Maintain authoritative app state cache for tray/UI reads
 
 ## Phase 4: Catalog Sync

@@ -73,6 +73,10 @@ func main() {
 	// --- Start event loop ---
 	go eventBus.Run(ctx)
 
+	// --- Start single-flight sync worker ---
+	syncWorker := coordinator.NewSyncWorker(16, appState, eventBus)
+	go syncWorker.Run(ctx)
+
 	// --- Start lock heartbeat manager ---
 	if cfg.CatalogPath != "" {
 		machine, err := os.Hostname()
@@ -112,6 +116,31 @@ func main() {
 			return ipc.Response{
 				Success: true,
 				Data:    appState.Snapshot(),
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdSyncNow:
+			err := syncWorker.Enqueue(coordinator.SyncJob{
+				Name: "manual_sync_now",
+				Execute: func(ctx context.Context) error {
+					// Placeholder sync action for Phase 3 queue wiring.
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case <-time.After(50 * time.Millisecond):
+						return nil
+					}
+				},
+			})
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   err.Error(),
+					Code:    ipc.CodeInternalError,
+				}
+			}
+			return ipc.Response{
+				Success: true,
+				Data:    map[string]string{"queued": "true"},
 				Code:    ipc.CodeOK,
 			}
 		default:

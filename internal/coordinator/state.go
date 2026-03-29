@@ -66,7 +66,23 @@ func (s *AppState) SetSyncing(v bool) {
 	if v {
 		s.trayColor = "red"
 		s.statusText = "Đang đồng bộ..."
+		return
 	}
+
+	if s.syncPaused {
+		s.trayColor = "orange"
+		s.statusText = "Đã tạm dừng đồng bộ"
+		return
+	}
+
+	if s.lightroomRunning {
+		s.trayColor = "blue"
+		s.statusText = "Lightroom đang chạy"
+		return
+	}
+
+	s.trayColor = "green"
+	s.statusText = "Sẵn sàng"
 }
 
 func (s *AppState) SetSyncPaused(v bool) {
