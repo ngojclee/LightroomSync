@@ -115,3 +115,38 @@ type LogEntry struct {
 type SyncBackupPayload struct {
 	ZipPath string `json:"zip_path"`
 }
+
+// ConfigSnapshot is the Agent config returned to UI callers.
+type ConfigSnapshot struct {
+	BackupFolder        string   `json:"backup_folder"`
+	CatalogPath         string   `json:"catalog_path"`
+	StartWithWindows    bool     `json:"start_with_windows"`
+	StartMinimized      bool     `json:"start_minimized"`
+	MinimizeToTray      bool     `json:"minimize_to_tray"`
+	AutoSync            bool     `json:"auto_sync"`
+	HeartbeatInterval   int      `json:"heartbeat_interval"`
+	CheckInterval       int      `json:"check_interval"`
+	LockTimeout         int      `json:"lock_timeout"`
+	MaxCatalogBackups   int      `json:"max_catalog_backups"`
+	PresetSyncEnabled   bool     `json:"preset_sync_enabled"`
+	PresetCategories    []string `json:"preset_categories"`
+	LastSyncedTimestamp string   `json:"last_synced_timestamp"`
+}
+
+// SaveConfigPayload is a partial config update payload.
+// nil fields mean "keep existing value".
+type SaveConfigPayload struct {
+	BackupFolder        *string   `json:"backup_folder,omitempty"`
+	CatalogPath         *string   `json:"catalog_path,omitempty"`
+	StartWithWindows    *bool     `json:"start_with_windows,omitempty"`
+	StartMinimized      *bool     `json:"start_minimized,omitempty"`
+	MinimizeToTray      *bool     `json:"minimize_to_tray,omitempty"`
+	AutoSync            *bool     `json:"auto_sync,omitempty"`
+	HeartbeatInterval   *int      `json:"heartbeat_interval,omitempty"`
+	CheckInterval       *int      `json:"check_interval,omitempty"`
+	LockTimeout         *int      `json:"lock_timeout,omitempty"`
+	MaxCatalogBackups   *int      `json:"max_catalog_backups,omitempty"`
+	PresetSyncEnabled   *bool     `json:"preset_sync_enabled,omitempty"`
+	PresetCategories    *[]string `json:"preset_categories,omitempty"`
+	LastSyncedTimestamp *string   `json:"last_synced_timestamp,omitempty"`
+}

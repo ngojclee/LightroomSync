@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -408,23 +410,106 @@ func main() {
 				Data:    appState.Snapshot(),
 				Code:    ipc.CodeOK,
 			}
-		case ipc.CmdSyncNow:
-			jobName := "manual_sync_now"
-			if appState.Snapshot().LightroomRunning {
-				jobName = "manual_sync_now_pending_lrcat_open"
+		case ipc.CmdGetConfig:
+			return ipc.Response{
+				Success: true,
+				Data:    configToIPCSnapshot(cfgMgr.Get()),
+				Code:    ipc.CodeOK,
 			}
+		case ipc.CmdSaveConfig:
+			payload, err := decodePayload[ipc.SaveConfigPayload](req.Payload)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("invalid save_config payload: %v", err),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			if isEmptyConfigPatch(payload) {
+				return ipc.Response{
+					Success: false,
+					Error:   "save_config payload is empty",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			if err := applyConfigPatch(cfgMgr, payload); err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   err.Error(),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+
+			updated := cfgMgr.Get()
+			appState.SetAutoSync(updated.AutoSync)
+			if exePath != "" {
+				startupMgr := winplatform.NewStartupManager()
+				if err := startupMgr.SetEnabled(updated.StartWithWindows, exePath, updated.StartMinimized); err != nil {
+					log.Printf("[WARN] Failed to apply startup registry setting after save_config: %v", err)
+				}
+			}
+
+			return ipc.Response{
+				Success: true,
+				Data:    configToIPCSnapshot(updated),
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdGetBackups:
+			current := cfgMgr.Get()
+			if strings.TrimSpace(current.BackupFolder) == "" {
+				return ipc.Response{
+					Success: false,
+					Error:   "backup folder is not configured",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			backups, err := monitor.ListZipBackups(reqCtx, current.BackupFolder)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   err.Error(),
+					Code:    ipc.CodeInternalError,
+				}
+			}
+			result := make([]ipc.BackupInfo, 0, len(backups))
+			for _, item := range backups {
+				result = append(result, ipc.BackupInfo{
+					Path:        item.Path,
+					CatalogName: strings.TrimSuffix(filepath.Base(item.Path), filepath.Ext(item.Path)),
+					Size:        item.Size,
+					ModTime:     item.ModTime,
+				})
+			}
+			return ipc.Response{
+				Success: true,
+				Data:    result,
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdSyncNow:
+			current := cfgMgr.Get()
+			if strings.TrimSpace(current.BackupFolder) == "" || strings.TrimSpace(current.CatalogPath) == "" {
+				return ipc.Response{
+					Success: false,
+					Error:   "backup/catalog paths are not configured",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+
+			jobName := "manual_sync_now_latest_backup"
 			err := syncWorker.Enqueue(coordinator.SyncJob{
 				Name:           jobName,
 				OperationID:    "manual_sync_now",
-				MaxRunDuration: 5 * time.Second,
+				MaxRunDuration: 120 * time.Second,
 				Execute: func(ctx context.Context) error {
-					// Placeholder sync action for Phase 3 queue wiring.
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(50 * time.Millisecond):
-						return nil
+					backups, err := monitor.ListZipBackups(ctx, current.BackupFolder)
+					if err != nil {
+						return err
 					}
+					if len(backups) == 0 {
+						return errors.New("no backup zip found")
+					}
+					zipPath := backups[0].Path
+					return syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.DefaultRestoreOptions())
 				},
 			})
 			if err != nil {
@@ -438,6 +523,69 @@ func main() {
 				Success: true,
 				Data:    map[string]string{"queued": "true"},
 				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdSyncBackup:
+			current := cfgMgr.Get()
+			if strings.TrimSpace(current.CatalogPath) == "" {
+				return ipc.Response{
+					Success: false,
+					Error:   "catalog path is not configured",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			payload, err := decodePayload[ipc.SyncBackupPayload](req.Payload)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("invalid sync_backup payload: %v", err),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			zipPath := strings.TrimSpace(payload.ZipPath)
+			if zipPath == "" {
+				return ipc.Response{
+					Success: false,
+					Error:   "zip_path is required",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			if !strings.EqualFold(filepath.Ext(zipPath), ".zip") {
+				return ipc.Response{
+					Success: false,
+					Error:   "zip_path must point to a .zip file",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			if _, err := os.Stat(zipPath); err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("backup zip not accessible: %v", err),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			jobName := "manual_sync_selected_backup"
+			err = syncWorker.Enqueue(coordinator.SyncJob{
+				Name:           jobName,
+				OperationID:    fmt.Sprintf("manual_sync_backup_%d", time.Now().UTC().UnixNano()),
+				MaxRunDuration: 120 * time.Second,
+				Execute: func(ctx context.Context) error {
+					return syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.DefaultRestoreOptions())
+				},
+			})
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   err.Error(),
+					Code:    ipc.CodeInternalError,
+				}
+			}
+			return ipc.Response{
+				Success: true,
+				Data: map[string]string{
+					"queued":   "true",
+					"zip_path": zipPath,
+				},
+				Code: ipc.CodeOK,
 			}
 		default:
 			return ipc.Response{
@@ -527,4 +675,138 @@ func hostNameOrUnknown() string {
 
 func isNetworkSyncJobName(jobName string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(jobName)), "network_sync_")
+}
+
+func configToIPCSnapshot(cfg config.Config) ipc.ConfigSnapshot {
+	return ipc.ConfigSnapshot{
+		BackupFolder:        cfg.BackupFolder,
+		CatalogPath:         cfg.CatalogPath,
+		StartWithWindows:    cfg.StartWithWindows,
+		StartMinimized:      cfg.StartMinimized,
+		MinimizeToTray:      cfg.MinimizeToTray,
+		AutoSync:            cfg.AutoSync,
+		HeartbeatInterval:   cfg.HeartbeatInterval,
+		CheckInterval:       cfg.CheckInterval,
+		LockTimeout:         cfg.LockTimeout,
+		MaxCatalogBackups:   cfg.MaxCatalogBackups,
+		PresetSyncEnabled:   cfg.PresetSyncEnabled,
+		PresetCategories:    append([]string(nil), cfg.PresetCategories...),
+		LastSyncedTimestamp: cfg.LastSyncedTimestamp,
+	}
+}
+
+func applyConfigPatch(cfgMgr *config.Manager, patch ipc.SaveConfigPayload) error {
+	cfg := cfgMgr.Get()
+
+	if patch.BackupFolder != nil {
+		cfg.BackupFolder = strings.TrimSpace(*patch.BackupFolder)
+	}
+	if patch.CatalogPath != nil {
+		cfg.CatalogPath = strings.TrimSpace(*patch.CatalogPath)
+	}
+	if patch.StartWithWindows != nil {
+		cfg.StartWithWindows = *patch.StartWithWindows
+	}
+	if patch.StartMinimized != nil {
+		cfg.StartMinimized = *patch.StartMinimized
+	}
+	if patch.MinimizeToTray != nil {
+		cfg.MinimizeToTray = *patch.MinimizeToTray
+	}
+	if patch.AutoSync != nil {
+		cfg.AutoSync = *patch.AutoSync
+	}
+	if patch.HeartbeatInterval != nil {
+		if *patch.HeartbeatInterval <= 0 {
+			return errors.New("heartbeat_interval must be > 0")
+		}
+		cfg.HeartbeatInterval = *patch.HeartbeatInterval
+	}
+	if patch.CheckInterval != nil {
+		if *patch.CheckInterval <= 0 {
+			return errors.New("check_interval must be > 0")
+		}
+		cfg.CheckInterval = *patch.CheckInterval
+	}
+	if patch.LockTimeout != nil {
+		if *patch.LockTimeout <= 0 {
+			return errors.New("lock_timeout must be > 0")
+		}
+		cfg.LockTimeout = *patch.LockTimeout
+	}
+	if patch.MaxCatalogBackups != nil {
+		if *patch.MaxCatalogBackups <= 0 {
+			return errors.New("max_catalog_backups must be > 0")
+		}
+		cfg.MaxCatalogBackups = *patch.MaxCatalogBackups
+	}
+	if patch.PresetSyncEnabled != nil {
+		cfg.PresetSyncEnabled = *patch.PresetSyncEnabled
+	}
+	if patch.PresetCategories != nil {
+		cfg.PresetCategories = normalizeCategories(*patch.PresetCategories)
+	}
+	if patch.LastSyncedTimestamp != nil {
+		cfg.LastSyncedTimestamp = strings.TrimSpace(*patch.LastSyncedTimestamp)
+	}
+
+	if len(cfg.PresetCategories) == 0 {
+		cfg.PresetCategories = []string{"Export Presets", "Develop Presets", "Watermarks"}
+	}
+
+	return cfgMgr.Update(cfg)
+}
+
+func normalizeCategories(raw []string) []string {
+	seen := map[string]struct{}{}
+	out := make([]string, 0, len(raw))
+	for _, item := range raw {
+		name := strings.TrimSpace(item)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, name)
+	}
+	return out
+}
+
+func decodePayload[T any](raw any) (T, error) {
+	var out T
+	if raw == nil {
+		return out, nil
+	}
+
+	data, err := json.Marshal(raw)
+	if err != nil {
+		return out, err
+	}
+	if len(data) == 0 || string(data) == "null" {
+		return out, nil
+	}
+
+	if err := json.Unmarshal(data, &out); err != nil {
+		return out, err
+	}
+	return out, nil
+}
+
+func isEmptyConfigPatch(p ipc.SaveConfigPayload) bool {
+	return p.BackupFolder == nil &&
+		p.CatalogPath == nil &&
+		p.StartWithWindows == nil &&
+		p.StartMinimized == nil &&
+		p.MinimizeToTray == nil &&
+		p.AutoSync == nil &&
+		p.HeartbeatInterval == nil &&
+		p.CheckInterval == nil &&
+		p.LockTimeout == nil &&
+		p.MaxCatalogBackups == nil &&
+		p.PresetSyncEnabled == nil &&
+		p.PresetCategories == nil &&
+		p.LastSyncedTimestamp == nil
 }

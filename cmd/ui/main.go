@@ -31,14 +31,15 @@ type actionEnvelope struct {
 }
 
 func main() {
-	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|sync-now)")
+	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup)")
+	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
 	flag.Parse()
 
 	log.Printf("[INFO] LightroomSync UI %s", Version)
 
 	if *action != "" {
-		env := runAction(*action, *pipeName)
+		env := runAction(*action, *payload, *pipeName)
 		printJSON(env)
 		if env.OK {
 			return
@@ -79,14 +80,22 @@ func main() {
 	}
 }
 
-func runAction(action, pipeName string) actionEnvelope {
+func runAction(action, payload, pipeName string) actionEnvelope {
 	switch strings.ToLower(strings.TrimSpace(action)) {
 	case "ping":
 		return actionPing(pipeName)
 	case "status":
 		return actionStatus(pipeName)
+	case "get-config":
+		return actionGetConfig(pipeName)
+	case "save-config":
+		return actionSaveConfig(pipeName, payload)
 	case "sync-now":
 		return actionSyncNow(pipeName)
+	case "get-backups":
+		return actionGetBackups(pipeName)
+	case "sync-backup":
+		return actionSyncBackup(pipeName, payload)
 	default:
 		return actionEnvelope{
 			OK:      false,
@@ -173,6 +182,147 @@ func actionSyncNow(pipeName string) actionEnvelope {
 	}
 }
 
+func actionGetConfig(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdGetConfig})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionSaveConfig(pipeName, payload string) actionEnvelope {
+	body, err := parsePayloadJSON(payload)
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeBadRequest,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{
+		Command: ipc.CmdSaveConfig,
+		Payload: body,
+	})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionGetBackups(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdGetBackups})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionSyncBackup(pipeName, payload string) actionEnvelope {
+	zipPath := strings.TrimSpace(payload)
+	if zipPath == "" {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeBadRequest,
+			Error:   "payload is required for sync-backup and must contain zip path",
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{
+		Command: ipc.CmdSyncBackup,
+		Payload: ipc.SyncBackupPayload{ZipPath: zipPath},
+	})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func parsePayloadJSON(payload string) (map[string]any, error) {
+	payload = strings.TrimSpace(payload)
+	if payload == "" {
+		return nil, errors.New("payload JSON is required for save-config")
+	}
+	var body map[string]any
+	if err := json.Unmarshal([]byte(payload), &body); err != nil {
+		return nil, fmt.Errorf("invalid payload JSON: %w", err)
+	}
+	return body, nil
+}
+
 func printJSON(payload any) {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
@@ -223,8 +373,8 @@ $pipe = '%s'
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = '%s'
-$form.Width = 880
-$form.Height = 620
+$form.Width = 980
+$form.Height = 720
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = [System.Drawing.Color]::FromArgb(245, 248, 255)
 
@@ -257,21 +407,48 @@ $btnStatus.Height = 36
 $btnStatus.Location = New-Object System.Drawing.Point(150, 80)
 $form.Controls.Add($btnStatus)
 
-$btnSync = New-Object System.Windows.Forms.Button
-$btnSync.Text = 'Sync Now'
-$btnSync.Width = 120
-$btnSync.Height = 36
-$btnSync.Location = New-Object System.Drawing.Point(290, 80)
-$btnSync.BackColor = [System.Drawing.Color]::FromArgb(11, 138, 106)
-$btnSync.ForeColor = [System.Drawing.Color]::White
-$form.Controls.Add($btnSync)
+$btnGetConfig = New-Object System.Windows.Forms.Button
+$btnGetConfig.Text = 'Get Config'
+$btnGetConfig.Width = 120
+$btnGetConfig.Height = 36
+$btnGetConfig.Location = New-Object System.Drawing.Point(290, 80)
+$form.Controls.Add($btnGetConfig)
+
+$btnGetBackups = New-Object System.Windows.Forms.Button
+$btnGetBackups.Text = 'Get Backups'
+$btnGetBackups.Width = 120
+$btnGetBackups.Height = 36
+$btnGetBackups.Location = New-Object System.Drawing.Point(420, 80)
+$form.Controls.Add($btnGetBackups)
+
+$btnSyncNow = New-Object System.Windows.Forms.Button
+$btnSyncNow.Text = 'Sync Now'
+$btnSyncNow.Width = 120
+$btnSyncNow.Height = 36
+$btnSyncNow.Location = New-Object System.Drawing.Point(550, 80)
+$btnSyncNow.BackColor = [System.Drawing.Color]::FromArgb(11, 138, 106)
+$btnSyncNow.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnSyncNow)
 
 $btnClose = New-Object System.Windows.Forms.Button
 $btnClose.Text = 'Close'
-$btnClose.Width = 100
+$btnClose.Width = 90
 $btnClose.Height = 36
-$btnClose.Location = New-Object System.Drawing.Point(420, 80)
+$btnClose.Location = New-Object System.Drawing.Point(680, 80)
 $form.Controls.Add($btnClose)
+
+$chkAutoSync = New-Object System.Windows.Forms.CheckBox
+$chkAutoSync.Text = 'Auto Sync'
+$chkAutoSync.AutoSize = $true
+$chkAutoSync.Location = New-Object System.Drawing.Point(790, 89)
+$form.Controls.Add($chkAutoSync)
+
+$btnSaveAutoSync = New-Object System.Windows.Forms.Button
+$btnSaveAutoSync.Text = 'Save'
+$btnSaveAutoSync.Width = 70
+$btnSaveAutoSync.Height = 30
+$btnSaveAutoSync.Location = New-Object System.Drawing.Point(880, 84)
+$form.Controls.Add($btnSaveAutoSync)
 
 $lblReachTitle = New-Object System.Windows.Forms.Label
 $lblReachTitle.Text = 'Agent Reachable:'
@@ -312,13 +489,63 @@ $lblTrayValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawi
 $lblTrayValue.Location = New-Object System.Drawing.Point(130, 180)
 $form.Controls.Add($lblTrayValue)
 
+$lblBackupRootTitle = New-Object System.Windows.Forms.Label
+$lblBackupRootTitle.Text = 'Backup Folder:'
+$lblBackupRootTitle.AutoSize = $true
+$lblBackupRootTitle.Location = New-Object System.Drawing.Point(300, 132)
+$form.Controls.Add($lblBackupRootTitle)
+
+$lblBackupRootValue = New-Object System.Windows.Forms.Label
+$lblBackupRootValue.Text = '-'
+$lblBackupRootValue.AutoSize = $true
+$lblBackupRootValue.MaximumSize = New-Object System.Drawing.Size(640, 0)
+$lblBackupRootValue.Location = New-Object System.Drawing.Point(390, 132)
+$form.Controls.Add($lblBackupRootValue)
+
+$lblCatalogTitle = New-Object System.Windows.Forms.Label
+$lblCatalogTitle.Text = 'Catalog Path:'
+$lblCatalogTitle.AutoSize = $true
+$lblCatalogTitle.Location = New-Object System.Drawing.Point(300, 156)
+$form.Controls.Add($lblCatalogTitle)
+
+$lblCatalogValue = New-Object System.Windows.Forms.Label
+$lblCatalogValue.Text = '-'
+$lblCatalogValue.AutoSize = $true
+$lblCatalogValue.MaximumSize = New-Object System.Drawing.Size(640, 0)
+$lblCatalogValue.Location = New-Object System.Drawing.Point(390, 156)
+$form.Controls.Add($lblCatalogValue)
+
+$lblSyncPathTitle = New-Object System.Windows.Forms.Label
+$lblSyncPathTitle.Text = 'Selected Zip:'
+$lblSyncPathTitle.AutoSize = $true
+$lblSyncPathTitle.Location = New-Object System.Drawing.Point(300, 180)
+$form.Controls.Add($lblSyncPathTitle)
+
+$txtSyncPath = New-Object System.Windows.Forms.TextBox
+$txtSyncPath.Location = New-Object System.Drawing.Point(390, 176)
+$txtSyncPath.Width = 450
+$form.Controls.Add($txtSyncPath)
+
+$btnSyncSelected = New-Object System.Windows.Forms.Button
+$btnSyncSelected.Text = 'Sync Selected'
+$btnSyncSelected.Width = 110
+$btnSyncSelected.Height = 28
+$btnSyncSelected.Location = New-Object System.Drawing.Point(850, 174)
+$form.Controls.Add($btnSyncSelected)
+
+$lstBackups = New-Object System.Windows.Forms.ListBox
+$lstBackups.Font = New-Object System.Drawing.Font('Consolas', 8.5)
+$lstBackups.Location = New-Object System.Drawing.Point(22, 214)
+$lstBackups.Size = New-Object System.Drawing.Size(440, 430)
+$form.Controls.Add($lstBackups)
+
 $txtOutput = New-Object System.Windows.Forms.TextBox
 $txtOutput.Multiline = $true
 $txtOutput.ReadOnly = $true
 $txtOutput.ScrollBars = 'Vertical'
 $txtOutput.Font = New-Object System.Drawing.Font('Consolas', 9)
-$txtOutput.Location = New-Object System.Drawing.Point(22, 214)
-$txtOutput.Size = New-Object System.Drawing.Size(820, 340)
+$txtOutput.Location = New-Object System.Drawing.Point(474, 214)
+$txtOutput.Size = New-Object System.Drawing.Size(488, 430)
 $form.Controls.Add($txtOutput)
 
 function Set-Reachability([bool]$ok) {
@@ -331,9 +558,40 @@ function Set-Reachability([bool]$ok) {
     }
 }
 
-function Invoke-Action([string]$action) {
+function Render-Config($cfg) {
+    if (-not $cfg) { return }
+    if ($null -ne $cfg.auto_sync) {
+        $chkAutoSync.Checked = [bool]$cfg.auto_sync
+    }
+    if ($cfg.backup_folder) {
+        $lblBackupRootValue.Text = [string]$cfg.backup_folder
+    } else {
+        $lblBackupRootValue.Text = '-'
+    }
+    if ($cfg.catalog_path) {
+        $lblCatalogValue.Text = [string]$cfg.catalog_path
+    } else {
+        $lblCatalogValue.Text = '-'
+    }
+}
+
+function Render-Backups($items) {
+    $lstBackups.Items.Clear()
+    if (-not $items) { return }
+    foreach ($item in $items) {
+        if ($item.path) {
+            [void]$lstBackups.Items.Add([string]$item.path)
+        }
+    }
+}
+
+function Invoke-Action([string]$action, [string]$payload = '') {
     try {
-        $raw = & $exe --action $action --pipe $pipe 2>&1 | Out-String
+        if ([string]::IsNullOrWhiteSpace($payload)) {
+            $raw = & $exe --action $action --pipe $pipe 2>&1 | Out-String
+        } else {
+            $raw = & $exe --action $action --pipe $pipe --payload $payload 2>&1 | Out-String
+        }
         $txtOutput.Text = $raw.Trim()
 
         try {
@@ -345,6 +603,12 @@ function Invoke-Action([string]$action) {
             if ($obj.data) {
                 if ($obj.data.status_text) { $lblStatusValue.Text = [string]$obj.data.status_text }
                 if ($obj.data.tray_color) { $lblTrayValue.Text = [string]$obj.data.tray_color }
+                if ($null -ne $obj.data.auto_sync -or $obj.data.backup_folder -or $obj.data.catalog_path) {
+                    Render-Config $obj.data
+                }
+                if ($obj.data -is [System.Array] -and $obj.data.Count -gt 0 -and $obj.data[0].path) {
+                    Render-Backups $obj.data
+                }
             } elseif ($obj.error) {
                 $lblStatusValue.Text = [string]$obj.error
                 $lblTrayValue.Text = '-'
@@ -362,19 +626,48 @@ function Invoke-Action([string]$action) {
 
 $btnPing.Add_Click({ Invoke-Action 'ping' })
 $btnStatus.Add_Click({ Invoke-Action 'status' })
-$btnSync.Add_Click({
+$btnGetConfig.Add_Click({ Invoke-Action 'get-config' })
+$btnGetBackups.Add_Click({ Invoke-Action 'get-backups' })
+$btnSyncNow.Add_Click({
     Invoke-Action 'sync-now'
     Start-Sleep -Milliseconds 220
     Invoke-Action 'status'
 })
+$btnSaveAutoSync.Add_Click({
+    $payloadObj = @{
+        auto_sync = [bool]$chkAutoSync.Checked
+    }
+    $payloadJson = $payloadObj | ConvertTo-Json -Compress
+    Invoke-Action 'save-config' $payloadJson
+})
+$btnSyncSelected.Add_Click({
+    $zipPath = [string]$txtSyncPath.Text
+    if ([string]::IsNullOrWhiteSpace($zipPath)) {
+        [System.Windows.Forms.MessageBox]::Show('Please select or enter a backup zip path first.', 'Sync Selected', 'OK', 'Information') | Out-Null
+        return
+    }
+    Invoke-Action 'sync-backup' $zipPath
+    Start-Sleep -Milliseconds 220
+    Invoke-Action 'status'
+})
 $btnClose.Add_Click({ $form.Close() })
+
+$lstBackups.Add_SelectedIndexChanged({
+    if ($lstBackups.SelectedItem) {
+        $txtSyncPath.Text = [string]$lstBackups.SelectedItem
+    }
+})
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 2500
 $timer.Add_Tick({ Invoke-Action 'status' })
 $timer.Start()
 
-$form.Add_Shown({ Invoke-Action 'status' })
+$form.Add_Shown({
+    Invoke-Action 'status'
+    Invoke-Action 'get-config'
+    Invoke-Action 'get-backups'
+})
 [void]$form.ShowDialog()
 `, escapedExe, escapedPipe, strings.ReplaceAll(uiHarnessWindowTitle, "'", "''"))
 }

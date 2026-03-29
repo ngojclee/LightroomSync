@@ -160,12 +160,14 @@
 - [ ] Implement config form and validation messages
 - [ ] Bind actions to Agent IPC (`SaveConfig`, `SyncNow`, `RefreshStatus`)
 - [ ] Render live status without direct filesystem calls
+- [x] Implement Agent-side IPC commands `GetConfig` + `SaveConfig` with partial payload patching and validation (temporary GUI harness integration)
 
 ### 6.2 Backup Browser Tab
 
 - [ ] Fetch list from Agent (`GetBackups`)
 - [ ] Implement sync-selected workflow (`SyncBackup`)
 - [ ] Add pause/resume sync control via Agent state
+- [x] Implement Agent-side IPC commands `GetBackups` + `SyncBackup` and temporary GUI harness controls for manual testing
 
 ### 6.3 Log Tab
 

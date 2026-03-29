@@ -28,6 +28,8 @@
 - Preset sync core is now implemented with deletion-aware state tracking, push/pull reconciliation, and mtime tolerance to reduce false conflicts.
 - Dynamic preset category discovery/filtering is now added with remote category bootstrap under `Presets/`.
 - Watermark/logo sync compatibility is now implemented for `.lrtemplate` and `.lrsmv`, including logo copy dedupe (size check) and path rewrite for local/network contexts.
+- Agent IPC now supports `GetConfig`/`SaveConfig` and `GetBackups`/`SyncBackup`, enabling richer GUI-driven end-to-end testing before full Wails UI.
+- Temporary Windows Forms GUI harness now supports config read/save (auto-sync toggle), backup listing, and sync-selected backup actions.
 
 ## 1. Motivation & Problem Statement
 
