@@ -20,6 +20,7 @@
 - Agent now has managed goroutine lifecycle and graceful shutdown (context cancel, IPC close, OFFLINE lock best-effort, bounded wait for worker stop).
 - Resilience layer now includes an operation watchdog (`op_id` + deadline), integrated with sync worker timeout alerts.
 - Network resilience now includes a share-health circuit breaker with outage/recovery events and state restoration on reconnect.
+- Sleep/resume resilience is now implemented via gap-based resume detection with forced post-resume network revalidation.
 
 ## 1. Motivation & Problem Statement
 

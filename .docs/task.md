@@ -96,7 +96,7 @@
 - [x] Add operation watchdog with `op_id` and deadline
 - [x] Add circuit breaker for unstable network share
 - [x] Add reconnect recovery workflow after share returns
-- [ ] Add sleep/resume handler: force state revalidation post-resume
+- [x] Add sleep/resume handler: force state revalidation post-resume
 
 ### 3.5 Event Coordinator
 

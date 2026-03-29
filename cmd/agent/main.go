@@ -124,6 +124,7 @@ func main() {
 	})
 
 	// --- Start network share health monitor (circuit breaker + recovery) ---
+	var shareProbe monitor.NetworkProbe
 	sharePaths := make([]string, 0, 2)
 	if cfg.CatalogPath != "" {
 		sharePaths = append(sharePaths, cfg.CatalogPath)
@@ -132,12 +133,13 @@ func main() {
 		sharePaths = append(sharePaths, cfg.BackupFolder)
 	}
 	if len(sharePaths) > 0 {
+		shareProbe = monitor.NewPathProbe(sharePaths)
 		shareHealth := monitor.NewShareHealthMonitor(monitor.ShareHealthConfig{
 			CheckInterval:    time.Duration(cfg.CheckInterval) * time.Second,
 			ProbeTimeout:     2 * time.Second,
 			FailureThreshold: 3,
 			OpenTimeout:      2 * time.Duration(cfg.CheckInterval) * time.Second,
-		}, monitor.NewPathProbe(sharePaths), monitor.ShareHealthHooks{
+		}, shareProbe, monitor.ShareHealthHooks{
 			OnNetworkLost: func(err error) {
 				log.Printf("[WARN] network share unstable: %v", err)
 				appState.SetWarning("Mất kết nối network share")
@@ -158,6 +160,41 @@ func main() {
 			shareHealth.Run(ctx)
 		})
 	}
+
+	// --- Start sleep/resume detector ---
+	resumeDetector := monitor.NewResumeDetector(5*time.Second, 20*time.Second, monitor.ResumeHooks{
+		OnResume: func(gap time.Duration) {
+			log.Printf("[INFO] resume detected after gap=%s; revalidating network state", gap.Round(time.Second))
+			appState.SetWarning("Đang kiểm tra lại network sau sleep/resume")
+
+			if shareProbe == nil {
+				appState.RefreshDerivedStatus()
+				return
+			}
+
+			revalidateCtx, revalidateCancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer revalidateCancel()
+			if err := shareProbe(revalidateCtx); err != nil {
+				log.Printf("[WARN] network revalidation after resume failed: %v", err)
+				appState.SetWarning("Network share chưa sẵn sàng sau resume")
+				eventBus.Emit(coordinator.InternalEvent{
+					Type:    coordinator.EvtNetworkLost,
+					Payload: err.Error(),
+				})
+				return
+			}
+
+			log.Printf("[INFO] network revalidation after resume succeeded")
+			appState.RefreshDerivedStatus()
+			eventBus.Emit(coordinator.InternalEvent{
+				Type:    coordinator.EvtNetworkAvailable,
+				Payload: "resume_revalidated",
+			})
+		},
+	})
+	startManaged(ctx, &wg, "resume-detector", func(ctx context.Context) {
+		resumeDetector.Run(ctx)
+	})
 
 	// --- Start backup monitor ---
 	if cfg.BackupFolder != "" {
