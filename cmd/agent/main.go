@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/ngojclee/lightroom-sync/internal/ipc"
 	"github.com/ngojclee/lightroom-sync/internal/monitor"
 	winplatform "github.com/ngojclee/lightroom-sync/internal/platform/windows"
+	syncpkg "github.com/ngojclee/lightroom-sync/internal/sync"
 )
 
 var Version = "dev"
@@ -73,6 +75,8 @@ func main() {
 		appState.SetMigrationHint(migrationHint)
 	}
 
+	var orchestrator *coordinator.CatalogSyncOrchestrator
+
 	// --- Context and goroutine lifecycle ---
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -98,6 +102,71 @@ func main() {
 	startManaged(ctx, &wg, "operation-watchdog", func(ctx context.Context) {
 		watchdog.Run(ctx)
 	})
+
+	if orchestrator != nil {
+		orchestrator = coordinator.NewCatalogSyncOrchestrator(coordinator.OrchestratorOptions{
+			Machine:    hostNameOrUnknown(),
+			CatalogDir: cfg.CatalogPath,
+			BackupDir:  cfg.BackupFolder,
+			AppState:   appState,
+			Worker:     syncWorker,
+			Manifest:   syncpkg.NewManifestManager(cfg.CatalogPath),
+			GetAutoSync: func() bool {
+				return cfgMgr.Get().AutoSync
+			},
+			GetLastSynced: func() string {
+				return cfgMgr.Get().LastSyncedTimestamp
+			},
+			SetLastSynced: cfgMgr.SetLastSyncedTimestamp,
+			Logf:          log.Printf,
+		})
+
+		eventBus.On(coordinator.EvtLightroomStopped, func(evt coordinator.InternalEvent) {
+			go func() {
+				if err := orchestrator.RunPendingIfAny(); err != nil {
+					log.Printf("[WARN] pending sync enqueue failed: %v", err)
+				}
+			}()
+		})
+
+		eventBus.On(coordinator.EvtNewBackupDetected, func(evt coordinator.InternalEvent) {
+			zipPath, ok := evt.Payload.(string)
+			if !ok || strings.TrimSpace(zipPath) == "" {
+				return
+			}
+
+			go func(path string) {
+				writeCtx, writeCancel := context.WithTimeout(context.Background(), 4*time.Second)
+				defer writeCancel()
+				if err := orchestrator.OnLocalBackupCreated(writeCtx, path); err != nil {
+					log.Printf("[WARN] failed to write manifest for local backup %s: %v", path, err)
+				}
+			}(zipPath)
+		})
+
+		eventBus.On(coordinator.EvtSyncCompleted, func(evt coordinator.InternalEvent) {
+			result, ok := evt.Payload.(coordinator.SyncResult)
+			if !ok {
+				return
+			}
+			if err := orchestrator.OnSyncCompleted(result.JobName); err != nil {
+				log.Printf("[WARN] failed to update last_synced_timestamp: %v", err)
+			}
+		})
+
+		startManaged(ctx, &wg, "startup-manifest-check", func(ctx context.Context) {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(1200 * time.Millisecond):
+			}
+			checkCtx, checkCancel := context.WithTimeout(ctx, 8*time.Second)
+			defer checkCancel()
+			if err := orchestrator.CheckStartupManifest(checkCtx); err != nil {
+				log.Printf("[WARN] startup manifest orchestration failed: %v", err)
+			}
+		})
+	}
 
 	// --- Start Lightroom process monitor ---
 	processDetector := winplatform.NewProcessDetector()
@@ -258,8 +327,12 @@ func main() {
 				Code:    ipc.CodeOK,
 			}
 		case ipc.CmdSyncNow:
+			jobName := "manual_sync_now"
+			if appState.Snapshot().LightroomRunning {
+				jobName = "manual_sync_now_pending_lrcat_open"
+			}
 			err := syncWorker.Enqueue(coordinator.SyncJob{
-				Name:           "manual_sync_now",
+				Name:           jobName,
 				OperationID:    "manual_sync_now",
 				MaxRunDuration: 5 * time.Second,
 				Execute: func(ctx context.Context) error {

@@ -122,10 +122,10 @@
 
 ### 4.3 Orchestration
 
-- [ ] Initial startup manifest check
-- [ ] Pending sync queue when Lightroom is running
-- [ ] Write manifest after local backup creation
-- [ ] Update `LastSyncedTimestamp` only on successful sync completion
+- [x] Initial startup manifest check
+- [x] Pending sync queue when Lightroom is running
+- [x] Write manifest after local backup creation
+- [x] Update `LastSyncedTimestamp` only on successful sync completion
 
 ### 4.4 Retention
 

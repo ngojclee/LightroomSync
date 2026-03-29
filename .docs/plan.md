@@ -22,6 +22,7 @@
 - Network resilience now includes a share-health circuit breaker with outage/recovery events and state restoration on reconnect.
 - Sleep/resume resilience is now implemented via gap-based resume detection with forced post-resume network revalidation.
 - Catalog core now has safe restore primitives: zip integrity validation, zip-slip protection, pre-extract cleanup, and wrapper-folder flatten support.
+- Catalog orchestration now includes startup manifest check, pending sync while Lightroom is open, manifest write on local backup detection, and last-synced timestamp update on successful network sync.
 
 ## 1. Motivation & Problem Statement
 

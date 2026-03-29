@@ -69,10 +69,15 @@ func TestSyncWorker_ProcessesJobsOneAtATime(t *testing.T) {
 		t.Fatalf("max concurrent running jobs = %d, want 1", got)
 	}
 
-	snap := state.Snapshot()
-	if snap.SyncInProgress {
-		t.Fatal("sync state should be false after all jobs completed")
+	deadline := time.Now().Add(300 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		snap := state.Snapshot()
+		if !snap.SyncInProgress {
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
 	}
+	t.Fatal("sync state should be false after all jobs completed")
 }
 
 func TestSyncWorker_RejectsInvalidJobs(t *testing.T) {
