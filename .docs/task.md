@@ -76,7 +76,7 @@
 
 - [x] Implement process detection (`CreateToolhelp32Snapshot`)
 - [x] Edge-trigger events: started/stopped only on state transition
-- [ ] Add monitor health metrics and error logs
+- [x] Add monitor health metrics and error logs
 
 ### 3.2 Lock Manager
 

@@ -79,16 +79,21 @@ const (
 
 // AppStatus represents the full application state snapshot.
 type AppStatus struct {
-	TrayColor        string `json:"tray_color"` // green, blue, orange, red
-	StatusText       string `json:"status_text"`
-	LightroomRunning bool   `json:"lightroom_running"`
-	SyncInProgress   bool   `json:"sync_in_progress"`
-	SyncPaused       bool   `json:"sync_paused"`
-	LastBackup       string `json:"last_backup,omitempty"`
-	LockMachine      string `json:"lock_machine,omitempty"`
-	LockStatus       string `json:"lock_status,omitempty"`
-	MigrationHint    string `json:"migration_hint,omitempty"`
-	AutoSync         bool   `json:"auto_sync"`
+	TrayColor              string `json:"tray_color"` // green, blue, orange, red
+	StatusText             string `json:"status_text"`
+	LightroomRunning       bool   `json:"lightroom_running"`
+	SyncInProgress         bool   `json:"sync_in_progress"`
+	SyncPaused             bool   `json:"sync_paused"`
+	LastBackup             string `json:"last_backup,omitempty"`
+	LockMachine            string `json:"lock_machine,omitempty"`
+	LockStatus             string `json:"lock_status,omitempty"`
+	MigrationHint          string `json:"migration_hint,omitempty"`
+	LightroomMonitorErrors int    `json:"lightroom_monitor_errors"`
+	BackupMonitorErrors    int    `json:"backup_monitor_errors"`
+	NetworkMonitorErrors   int    `json:"network_monitor_errors"`
+	LockMonitorErrors      int    `json:"lock_monitor_errors"`
+	LastResumeGapSeconds   int    `json:"last_resume_gap_seconds"`
+	AutoSync               bool   `json:"auto_sync"`
 }
 
 // BackupInfo describes a single backup zip file.

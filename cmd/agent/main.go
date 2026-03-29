@@ -188,6 +188,7 @@ func main() {
 			},
 			OnError: func(err error) {
 				log.Printf("[WARN] lightroom monitor error: %v", err)
+				appState.IncLightroomMonitorError()
 			},
 		},
 	)
@@ -214,6 +215,7 @@ func main() {
 		}, shareProbe, monitor.ShareHealthHooks{
 			OnNetworkLost: func(err error) {
 				log.Printf("[WARN] network share unstable: %v", err)
+				appState.IncNetworkMonitorError()
 				appState.SetWarning("Mất kết nối network share")
 				eventBus.Emit(coordinator.InternalEvent{
 					Type:    coordinator.EvtNetworkLost,
@@ -237,6 +239,7 @@ func main() {
 	resumeDetector := monitor.NewResumeDetector(5*time.Second, 20*time.Second, monitor.ResumeHooks{
 		OnResume: func(gap time.Duration) {
 			log.Printf("[INFO] resume detected after gap=%s; revalidating network state", gap.Round(time.Second))
+			appState.SetLastResumeGapSeconds(int(gap.Seconds()))
 			appState.SetWarning("Đang kiểm tra lại network sau sleep/resume")
 
 			if shareProbe == nil {
@@ -248,6 +251,7 @@ func main() {
 			defer revalidateCancel()
 			if err := shareProbe(revalidateCtx); err != nil {
 				log.Printf("[WARN] network revalidation after resume failed: %v", err)
+				appState.IncNetworkMonitorError()
 				appState.SetWarning("Network share chưa sẵn sàng sau resume")
 				eventBus.Emit(coordinator.InternalEvent{
 					Type:    coordinator.EvtNetworkLost,
@@ -282,6 +286,7 @@ func main() {
 			},
 			OnError: func(err error) {
 				log.Printf("[WARN] backup monitor error: %v", err)
+				appState.IncBackupMonitorError()
 			},
 		})
 		startManaged(ctx, &wg, "backup-monitor", func(ctx context.Context) {
@@ -305,6 +310,7 @@ func main() {
 			},
 			OnError: func(err error) {
 				log.Printf("[WARN] lock heartbeat error: %v", err)
+				appState.IncLockMonitorError()
 				appState.SetLock(shutdownMachine, "ERROR")
 			},
 		})

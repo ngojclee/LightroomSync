@@ -24,6 +24,7 @@
 - Catalog core now has safe restore primitives: zip integrity validation, zip-slip protection, pre-extract cleanup, and wrapper-folder flatten support.
 - Catalog orchestration now includes startup manifest check, pending sync while Lightroom is open, manifest write on local backup detection, and last-synced timestamp update on successful network sync.
 - Retention policy now includes automatic pre-sync backup snapshots and zip retention cleanup for both pre-sync and network backup locations.
+- App status now exposes monitor health metrics (error counters + last resume gap) for UI diagnostics.
 
 ## 1. Motivation & Problem Statement
 

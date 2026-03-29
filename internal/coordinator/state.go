@@ -11,16 +11,21 @@ import (
 type AppState struct {
 	mu sync.RWMutex
 
-	lightroomRunning bool
-	syncInProgress   bool
-	syncPaused       bool
-	trayColor        string // green, blue, orange, red
-	statusText       string
-	lastBackup       string
-	lockMachine      string
-	lockStatus       string
-	migrationHint    string
-	autoSync         bool
+	lightroomRunning       bool
+	syncInProgress         bool
+	syncPaused             bool
+	trayColor              string // green, blue, orange, red
+	statusText             string
+	lastBackup             string
+	lockMachine            string
+	lockStatus             string
+	migrationHint          string
+	lightroomMonitorErrors int
+	backupMonitorErrors    int
+	networkMonitorErrors   int
+	lockMonitorErrors      int
+	lastResumeGapSeconds   int
+	autoSync               bool
 }
 
 func NewAppState() *AppState {
@@ -35,16 +40,21 @@ func (s *AppState) Snapshot() ipc.AppStatus {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return ipc.AppStatus{
-		TrayColor:        s.trayColor,
-		StatusText:       s.statusText,
-		LightroomRunning: s.lightroomRunning,
-		SyncInProgress:   s.syncInProgress,
-		SyncPaused:       s.syncPaused,
-		LastBackup:       s.lastBackup,
-		LockMachine:      s.lockMachine,
-		LockStatus:       s.lockStatus,
-		MigrationHint:    s.migrationHint,
-		AutoSync:         s.autoSync,
+		TrayColor:              s.trayColor,
+		StatusText:             s.statusText,
+		LightroomRunning:       s.lightroomRunning,
+		SyncInProgress:         s.syncInProgress,
+		SyncPaused:             s.syncPaused,
+		LastBackup:             s.lastBackup,
+		LockMachine:            s.lockMachine,
+		LockStatus:             s.lockStatus,
+		MigrationHint:          s.migrationHint,
+		LightroomMonitorErrors: s.lightroomMonitorErrors,
+		BackupMonitorErrors:    s.backupMonitorErrors,
+		NetworkMonitorErrors:   s.networkMonitorErrors,
+		LockMonitorErrors:      s.lockMonitorErrors,
+		LastResumeGapSeconds:   s.lastResumeGapSeconds,
+		AutoSync:               s.autoSync,
 	}
 }
 
@@ -99,6 +109,39 @@ func (s *AppState) SetAutoSync(v bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.autoSync = v
+}
+
+func (s *AppState) IncLightroomMonitorError() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lightroomMonitorErrors++
+}
+
+func (s *AppState) IncBackupMonitorError() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.backupMonitorErrors++
+}
+
+func (s *AppState) IncNetworkMonitorError() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.networkMonitorErrors++
+}
+
+func (s *AppState) IncLockMonitorError() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lockMonitorErrors++
+}
+
+func (s *AppState) SetLastResumeGapSeconds(seconds int) {
+	if seconds < 0 {
+		seconds = 0
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastResumeGapSeconds = seconds
 }
 
 // RefreshDerivedStatus clears temporary warning state and restores status from current flags.
