@@ -47,7 +47,7 @@
 
 - [x] Implement `cmd/ui/main.go` (Wails window only)
 - [x] UI startup checks Agent availability via IPC ping
-- [x] Add temporary local web GUI harness for IPC testing (`status`, `sync_now`, `ping`) before full Wails implementation
+- [x] Add temporary Windows Forms GUI harness for IPC testing (`status`, `sync_now`, `ping`) before full Wails implementation
 - [ ] Add window focus behavior when already-open UI instance exists
 
 ## Phase 2: Config & Windows Integration

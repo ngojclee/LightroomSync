@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
+	"fmt"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"runtime"
-	"syscall"
+	"strings"
 	"time"
 
 	"github.com/ngojclee/lightroom-sync/internal/ipc"
@@ -19,383 +18,347 @@ import (
 
 var Version = "dev"
 
-type uiApp struct {
-	pipeName string
-	server   *http.Server
+type actionEnvelope struct {
+	OK      bool   `json:"ok"`
+	ID      string `json:"id,omitempty"`
+	Success bool   `json:"success"`
+	Code    string `json:"code,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Data    any    `json:"data,omitempty"`
+	Server  string `json:"server_ts,omitempty"`
 }
 
 func main() {
+	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|sync-now)")
+	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
+	flag.Parse()
+
 	log.Printf("[INFO] LightroomSync UI %s", Version)
 
-	app := &uiApp{
-		pipeName: ipc.PipeName,
-	}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", app.handleIndex)
-	mux.HandleFunc("/api/ping", app.handlePing)
-	mux.HandleFunc("/api/status", app.handleStatus)
-	mux.HandleFunc("/api/sync-now", app.handleSyncNow)
-	mux.HandleFunc("/api/exit", app.handleExit)
-
-	app.server = &http.Server{
-		Handler:           mux,
-		ReadHeaderTimeout: 4 * time.Second,
-	}
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatalf("Failed to start local UI server: %v", err)
-	}
-	defer ln.Close()
-
-	uiURL := "http://" + ln.Addr().String()
-
-	go func() {
-		if serveErr := app.server.Serve(ln); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
-			log.Printf("[ERROR] UI server stopped unexpectedly: %v", serveErr)
+	if *action != "" {
+		env := runAction(*action, *pipeName)
+		printJSON(env)
+		if env.OK {
+			return
 		}
-	}()
+		os.Exit(1)
+	}
+
+	if runtime.GOOS != "windows" {
+		log.Printf("[WARN] Temporary GUI harness currently supports Windows only. Use --action for headless checks.")
+		return
+	}
 
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), 2200*time.Millisecond)
 	defer cancelWait()
-	err = ipc.WaitForAgent(waitCtx, ipc.PipeName, 150*time.Millisecond)
-	if err != nil {
+	if err := ipc.WaitForAgent(waitCtx, *pipeName, 150*time.Millisecond); err != nil {
 		log.Printf("[WARN] Agent not reachable at startup: %v", err)
 	} else {
-		log.Println("[INFO] Agent reachable. Opening test GUI...")
+		log.Println("[INFO] Agent reachable. Opening temporary GUI harness...")
 	}
 
-	if err := openBrowser(uiURL); err != nil {
-		log.Printf("[WARN] Failed to open browser automatically: %v", err)
-		log.Printf("[INFO] Open manually: %s", uiURL)
+	if err := launchWindowsHarness(*pipeName); err != nil {
+		log.Printf("[ERROR] Failed to launch temporary GUI harness: %v", err)
+		os.Exit(1)
 	}
-	log.Printf("[INFO] UI running at %s", uiURL)
-
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
-
-	<-sigCh
-	log.Println("[INFO] Shutting down UI...")
-
-	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancelShutdown()
-	_ = app.server.Shutdown(shutdownCtx)
 }
 
-func (a *uiApp) handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(uiHTML))
-}
-
-func (a *uiApp) handlePing(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	ctx, cancel := context.WithTimeout(r.Context(), 1200*time.Millisecond)
-	defer cancel()
-
-	ok, err := ipc.Ping(ctx, a.pipeName)
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":      false,
-			"success": false,
-			"error":   err.Error(),
-			"code":    ipc.CodeAgentOffline,
-		})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":      true,
-		"success": ok,
-		"code":    ipc.CodeOK,
-	})
-}
-
-func (a *uiApp) handleStatus(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	resp, err := ipc.Call(ctx, a.pipeName, ipc.Request{Command: ipc.CmdGetStatus})
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":      false,
-			"success": false,
-			"error":   err.Error(),
-			"code":    ipc.CodeAgentOffline,
-		})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":       true,
-		"id":       resp.ID,
-		"success":  resp.Success,
-		"code":     resp.Code,
-		"error":    resp.Error,
-		"data":     resp.Data,
-		"serverTs": time.Now().Format(time.RFC3339),
-	})
-}
-
-func (a *uiApp) handleSyncNow(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-	defer cancel()
-
-	resp, err := ipc.Call(ctx, a.pipeName, ipc.Request{Command: ipc.CmdSyncNow})
-	if err != nil {
-		writeJSON(w, http.StatusOK, map[string]any{
-			"ok":      false,
-			"success": false,
-			"error":   err.Error(),
-			"code":    ipc.CodeAgentOffline,
-		})
-		return
-	}
-
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok":      true,
-		"id":      resp.ID,
-		"success": resp.Success,
-		"code":    resp.Code,
-		"error":   resp.Error,
-		"data":    resp.Data,
-	})
-}
-
-func (a *uiApp) handleExit(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"ok": true,
-	})
-
-	go func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		defer cancel()
-		_ = a.server.Shutdown(shutdownCtx)
-	}()
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func openBrowser(url string) error {
-	switch runtime.GOOS {
-	case "windows":
-		return exec.Command("rundll32", "url.dll,FileProtocolHandler", url).Start()
-	case "darwin":
-		return exec.Command("open", url).Start()
+func runAction(action, pipeName string) actionEnvelope {
+	switch strings.ToLower(strings.TrimSpace(action)) {
+	case "ping":
+		return actionPing(pipeName)
+	case "status":
+		return actionStatus(pipeName)
+	case "sync-now":
+		return actionSyncNow(pipeName)
 	default:
-		return exec.Command("xdg-open", url).Start()
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeBadRequest,
+			Error:   fmt.Sprintf("unsupported action: %s", action),
+			Server:  time.Now().Format(time.RFC3339),
+		}
 	}
 }
 
-const uiHTML = `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LightroomSync UI Test</title>
-  <style>
-    :root {
-      --bg: #f5f8ff;
-      --panel: #ffffff;
-      --line: #d7e0f7;
-      --text: #183153;
-      --muted: #58729c;
-      --ok: #2e8b57;
-      --warn: #c96f00;
-      --danger: #c73b3b;
-      --btn: #1f5eff;
-      --btn2: #0b8a6a;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: "Segoe UI", Tahoma, sans-serif;
-      background: radial-gradient(circle at top left, #eef3ff 0%, var(--bg) 45%, #ecfff9 100%);
-      color: var(--text);
-      min-height: 100vh;
-    }
-    .wrap {
-      max-width: 980px;
-      margin: 22px auto;
-      padding: 0 16px;
-    }
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      box-shadow: 0 10px 30px rgba(24, 49, 83, 0.08);
-      padding: 16px;
-    }
-    h1 {
-      margin: 0 0 8px;
-      font-size: 22px;
-    }
-    .sub {
-      margin: 0 0 16px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-bottom: 16px;
-    }
-    button {
-      border: 0;
-      border-radius: 10px;
-      color: #fff;
-      padding: 10px 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform .06s ease, opacity .12s ease;
-    }
-    button:hover { opacity: 0.92; }
-    button:active { transform: translateY(1px); }
-    .btn-primary { background: var(--btn); }
-    .btn-sync { background: var(--btn2); }
-    .btn-danger { background: var(--danger); }
-    .status {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 10px;
-      margin-bottom: 12px;
-    }
-    .kv {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 10px;
-      background: #fcfdff;
-    }
-    .k { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
-    .v { font-size: 14px; font-weight: 600; }
-    .v.ok { color: var(--ok); }
-    .v.warn { color: var(--warn); }
-    .v.danger { color: var(--danger); }
-    pre {
-      margin: 0;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #0e1a2b;
-      color: #f0f6ff;
-      padding: 12px;
-      min-height: 240px;
-      overflow: auto;
-      font-size: 12px;
-      line-height: 1.35;
-    }
-  </style>
-</head>
-<body>
-  <div class="wrap">
-    <div class="panel">
-      <h1>Lightroom Sync — Test GUI</h1>
-      <p class="sub">Temporary GUI for validating Agent IPC before full Wails UI.</p>
-      <div class="actions">
-        <button class="btn-primary" id="btnPing">Ping Agent</button>
-        <button class="btn-primary" id="btnStatus">Refresh Status</button>
-        <button class="btn-sync" id="btnSyncNow">Sync Now</button>
-        <button class="btn-danger" id="btnExit">Exit UI</button>
-      </div>
-      <div class="status">
-        <div class="kv"><div class="k">Agent Reachable</div><div class="v" id="agentReachable">Unknown</div></div>
-        <div class="kv"><div class="k">Status Text</div><div class="v" id="statusText">-</div></div>
-        <div class="kv"><div class="k">Tray Color</div><div class="v" id="trayColor">-</div></div>
-        <div class="kv"><div class="k">Lightroom Running</div><div class="v" id="lrRunning">-</div></div>
-      </div>
-      <pre id="output">Loading...</pre>
-    </div>
-  </div>
-<script>
-const $ = (id) => document.getElementById(id);
-const output = $("output");
+func actionPing(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 1200*time.Millisecond)
+	defer cancel()
 
-function setClass(el, type) {
-  el.classList.remove("ok", "warn", "danger");
-  if (type) el.classList.add(type);
+	ok, err := ipc.Ping(ctx, pipeName)
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		Success: ok,
+		Code:    ipc.CodeOK,
+		Server:  time.Now().Format(time.RFC3339),
+	}
 }
 
-function write(obj) {
-  output.textContent = JSON.stringify(obj, null, 2);
+func actionStatus(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdGetStatus})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
 }
 
-function applyStatusEnvelope(env) {
-  const ok = !!env.ok;
-  $("agentReachable").textContent = ok ? "Yes" : "No";
-  setClass($("agentReachable"), ok ? "ok" : "danger");
+func actionSyncNow(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
 
-  const data = env.data || {};
-  $("statusText").textContent = data.status_text || (env.error || "-");
-  $("trayColor").textContent = data.tray_color || "-";
-  $("lrRunning").textContent = (typeof data.lightroom_running === "boolean")
-    ? (data.lightroom_running ? "Yes" : "No")
-    : "-";
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdSyncNow})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
 }
 
-async function api(path, method="GET") {
-  const res = await fetch(path, { method });
-  return await res.json();
+func printJSON(payload any) {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	_ = enc.Encode(payload)
 }
 
-async function refreshStatus() {
-  try {
-    const env = await api("/api/status");
-    applyStatusEnvelope(env);
-    write(env);
-  } catch (e) {
-    const errObj = { ok: false, error: String(e) };
-    applyStatusEnvelope(errObj);
-    write(errObj);
-  }
+func launchWindowsHarness(pipeName string) error {
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve ui executable path: %w", err)
+	}
+
+	script := windowsHarnessScript(exePath, pipeName)
+	var lastErr error
+	for _, shellName := range []string{"pwsh", "powershell"} {
+		cmd := exec.Command(shellName, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		err := cmd.Run()
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if errors.Is(err, exec.ErrNotFound) {
+			continue
+		}
+	}
+	if lastErr != nil {
+		return lastErr
+	}
+	return fmt.Errorf("no PowerShell host found (pwsh/powershell)")
 }
 
-$("btnPing").addEventListener("click", async () => {
-  const env = await api("/api/ping", "POST");
-  write(env);
-  await refreshStatus();
-});
+func windowsHarnessScript(exePath, pipeName string) string {
+	escapedExe := strings.ReplaceAll(exePath, "'", "''")
+	escapedPipe := strings.ReplaceAll(pipeName, "'", "''")
 
-$("btnStatus").addEventListener("click", refreshStatus);
+	return fmt.Sprintf(`
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
-$("btnSyncNow").addEventListener("click", async () => {
-  const env = await api("/api/sync-now", "POST");
-  write(env);
-  setTimeout(refreshStatus, 250);
-});
+$exe = '%s'
+$pipe = '%s'
 
-$("btnExit").addEventListener("click", async () => {
-  await api("/api/exit", "POST");
-  write({ ok: true, message: "UI server shutting down..." });
-  setTimeout(() => window.close(), 250);
-});
+$form = New-Object System.Windows.Forms.Form
+$form.Text = 'Lightroom Sync - Temporary GUI Test'
+$form.Width = 880
+$form.Height = 620
+$form.StartPosition = 'CenterScreen'
+$form.BackColor = [System.Drawing.Color]::FromArgb(245, 248, 255)
 
-refreshStatus();
-setInterval(refreshStatus, 2500);
-</script>
-</body>
-</html>`
+$title = New-Object System.Windows.Forms.Label
+$title.Text = 'Lightroom Sync - GUI Test Harness'
+$title.Font = New-Object System.Drawing.Font('Segoe UI', 16, [System.Drawing.FontStyle]::Bold)
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(20, 16)
+$form.Controls.Add($title)
+
+$subtitle = New-Object System.Windows.Forms.Label
+$subtitle.Text = 'Temporary Windows Forms GUI for testing Agent IPC before full Wails UI.'
+$subtitle.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+$subtitle.AutoSize = $true
+$subtitle.ForeColor = [System.Drawing.Color]::FromArgb(88, 114, 156)
+$subtitle.Location = New-Object System.Drawing.Point(22, 46)
+$form.Controls.Add($subtitle)
+
+$btnPing = New-Object System.Windows.Forms.Button
+$btnPing.Text = 'Ping Agent'
+$btnPing.Width = 120
+$btnPing.Height = 36
+$btnPing.Location = New-Object System.Drawing.Point(22, 80)
+$form.Controls.Add($btnPing)
+
+$btnStatus = New-Object System.Windows.Forms.Button
+$btnStatus.Text = 'Refresh Status'
+$btnStatus.Width = 130
+$btnStatus.Height = 36
+$btnStatus.Location = New-Object System.Drawing.Point(150, 80)
+$form.Controls.Add($btnStatus)
+
+$btnSync = New-Object System.Windows.Forms.Button
+$btnSync.Text = 'Sync Now'
+$btnSync.Width = 120
+$btnSync.Height = 36
+$btnSync.Location = New-Object System.Drawing.Point(290, 80)
+$btnSync.BackColor = [System.Drawing.Color]::FromArgb(11, 138, 106)
+$btnSync.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnSync)
+
+$btnClose = New-Object System.Windows.Forms.Button
+$btnClose.Text = 'Close'
+$btnClose.Width = 100
+$btnClose.Height = 36
+$btnClose.Location = New-Object System.Drawing.Point(420, 80)
+$form.Controls.Add($btnClose)
+
+$lblReachTitle = New-Object System.Windows.Forms.Label
+$lblReachTitle.Text = 'Agent Reachable:'
+$lblReachTitle.AutoSize = $true
+$lblReachTitle.Location = New-Object System.Drawing.Point(22, 132)
+$form.Controls.Add($lblReachTitle)
+
+$lblReachValue = New-Object System.Windows.Forms.Label
+$lblReachValue.Text = 'Unknown'
+$lblReachValue.AutoSize = $true
+$lblReachValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$lblReachValue.Location = New-Object System.Drawing.Point(130, 132)
+$form.Controls.Add($lblReachValue)
+
+$lblStatusTitle = New-Object System.Windows.Forms.Label
+$lblStatusTitle.Text = 'Status:'
+$lblStatusTitle.AutoSize = $true
+$lblStatusTitle.Location = New-Object System.Drawing.Point(22, 156)
+$form.Controls.Add($lblStatusTitle)
+
+$lblStatusValue = New-Object System.Windows.Forms.Label
+$lblStatusValue.Text = '-'
+$lblStatusValue.AutoSize = $true
+$lblStatusValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$lblStatusValue.Location = New-Object System.Drawing.Point(130, 156)
+$form.Controls.Add($lblStatusValue)
+
+$lblTrayTitle = New-Object System.Windows.Forms.Label
+$lblTrayTitle.Text = 'Tray Color:'
+$lblTrayTitle.AutoSize = $true
+$lblTrayTitle.Location = New-Object System.Drawing.Point(22, 180)
+$form.Controls.Add($lblTrayTitle)
+
+$lblTrayValue = New-Object System.Windows.Forms.Label
+$lblTrayValue.Text = '-'
+$lblTrayValue.AutoSize = $true
+$lblTrayValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$lblTrayValue.Location = New-Object System.Drawing.Point(130, 180)
+$form.Controls.Add($lblTrayValue)
+
+$txtOutput = New-Object System.Windows.Forms.TextBox
+$txtOutput.Multiline = $true
+$txtOutput.ReadOnly = $true
+$txtOutput.ScrollBars = 'Vertical'
+$txtOutput.Font = New-Object System.Drawing.Font('Consolas', 9)
+$txtOutput.Location = New-Object System.Drawing.Point(22, 214)
+$txtOutput.Size = New-Object System.Drawing.Size(820, 340)
+$form.Controls.Add($txtOutput)
+
+function Set-Reachability([bool]$ok) {
+    if ($ok) {
+        $lblReachValue.Text = 'Yes'
+        $lblReachValue.ForeColor = [System.Drawing.Color]::FromArgb(46, 139, 87)
+    } else {
+        $lblReachValue.Text = 'No'
+        $lblReachValue.ForeColor = [System.Drawing.Color]::FromArgb(199, 59, 59)
+    }
+}
+
+function Invoke-Action([string]$action) {
+    try {
+        $raw = & $exe --action $action --pipe $pipe 2>&1 | Out-String
+        $txtOutput.Text = $raw.Trim()
+
+        try {
+            $obj = $raw | ConvertFrom-Json
+            if ($obj -and $null -ne $obj.ok) {
+                Set-Reachability([bool]$obj.ok)
+            }
+
+            if ($obj.data) {
+                if ($obj.data.status_text) { $lblStatusValue.Text = [string]$obj.data.status_text }
+                if ($obj.data.tray_color) { $lblTrayValue.Text = [string]$obj.data.tray_color }
+            } elseif ($obj.error) {
+                $lblStatusValue.Text = [string]$obj.error
+                $lblTrayValue.Text = '-'
+            }
+        } catch {
+            Set-Reachability($false)
+            $lblStatusValue.Text = 'Invalid JSON output'
+        }
+    } catch {
+        Set-Reachability($false)
+        $lblStatusValue.Text = $_.Exception.Message
+        $txtOutput.Text = $_.Exception.Message
+    }
+}
+
+$btnPing.Add_Click({ Invoke-Action 'ping' })
+$btnStatus.Add_Click({ Invoke-Action 'status' })
+$btnSync.Add_Click({
+    Invoke-Action 'sync-now'
+    Start-Sleep -Milliseconds 220
+    Invoke-Action 'status'
+})
+$btnClose.Add_Click({ $form.Close() })
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = 2500
+$timer.Add_Tick({ Invoke-Action 'status' })
+$timer.Start()
+
+$form.Add_Shown({ Invoke-Action 'status' })
+[void]$form.ShowDialog()
+`, escapedExe, escapedPipe)
+}
