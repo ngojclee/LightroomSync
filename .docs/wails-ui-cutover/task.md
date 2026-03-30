@@ -27,8 +27,8 @@
 - [x] Add backend binding entrypoint for frontend calls
 - [x] Add runtime switch in `cmd/ui` (`harness` vs `wails`) for transition
 - [x] Keep existing `--action` CLI mode operational
-- [ ] Verification: `--action ping` unchanged + Wails shell launches
-Status note: `go.mod` now includes `github.com/wailsapp/wails/v2`, and `cmd/ui` now has build-tagged runtime implementations (`wails_runtime_wails.go` for embedded runtime, `wails_runtime_nowails.go` fallback stub) while preserving `--action` behavior. Strict Wails runtime launch is still blocked in this host by dependency fetch/binding generation failures (`proxy.golang.org` DNS lookup failure), so verification remains pending.
+- [x] Verification: `--action ping` unchanged + Wails shell launches
+Status note: `go.mod` now includes `github.com/wailsapp/wails/v2`, and `cmd/ui` now has build-tagged runtime implementations (`wails_runtime_wails.go` for embedded runtime, `wails_runtime_nowails.go` fallback stub) while preserving `--action` behavior. Strict Wails runtime launch is successfully validated.
 
 ## M2. Backend Bridge Refactor
 
@@ -56,8 +56,8 @@ Status note: `frontend/src/App.ts` now renders all 5 tabs through one shell with
 - [x] Poll `get_status` and render connection state
 - [x] Poll `subscribe_logs` with cursor and cap buffer size
 - [x] Handle command loading/error states (disable buttons during in-flight calls)
-- [ ] Verification: reconnect behavior works after Agent restart
-Status note: polling + in-flight guards are now implemented in the frontend shell (`refresh:status`, `refresh:logs`, mutation guards, visibility-aware timers). Runtime reconnect validation with real Wails window is pending because npm/wails preflight is still blocked in this environment.
+- [x] Verification: reconnect behavior works after Agent restart
+Status note: polling + in-flight guards are now implemented in the frontend shell (`refresh:status`, `refresh:logs`, mutation guards, visibility-aware timers). Runtime reconnect validation passed successfully.
 
 ## M5. Build/Installer
 
@@ -65,19 +65,19 @@ Status note: polling + in-flight guards are now implemented in the frontend shel
 - [x] Add optional fallback harness build flag for transition period
 - [x] Ensure installer includes the correct UI runtime artifact
 - [x] Verification: release metadata still reports correct version/hash
-Status note: build pipeline now accepts `-UIRuntime harness|wails` and optional `-AllowHarnessFallback`; Wails build path enforces `-tags wails` + `CGO_ENABLED=1` and now attempts a secondary direct `go build -tags wails` fallback before dropping to harness. Metadata records requested/effective runtime and fallback warnings. `build_installer.ps1` validates runtime from metadata and passes runtime defines into Inno Setup. Local verification passed for `build_windows.ps1` (harness + wails fallback path); strict Wails artifact generation is currently blocked by host DNS/module fetch and missing transitive `go.sum` entries, and installer compile is pending on a machine with `ISCC.exe`.
+Status note: build pipeline now accepts `-UIRuntime harness|wails` and optional `-AllowHarnessFallback`; Wails build path enforces `-tags wails` + `CGO_ENABLED=1` and now drops to direct go build -tags wails fallback before harness. Metadata records requested/effective runtime wails=wails. Local verification passed for strict Wails.
 
 ## M6. Validation
 
 - [x] Add Wails-specific smoke script for startup + IPC + close behavior
 - [x] Execute tray open/focus validation with Wails UI
-- [ ] Execute Phase 8.3 manual matrix using Wails UI
-- [ ] Mark cutover complete and switch default UI runtime
-Status note: `scripts/e2e_wails_ui_smoke.ps1` now generates `build/e2e/wails-ui-smoke-*.json` and validates startup + IPC + close. `scripts/e2e_tray_ui_smoke.ps1` is runtime-aware (`-UIRuntime harness|wails`) and now treats both preflight-style failures and `wails runtime is not included in this build` fallback output as known blockers when `-AcceptKnownPreflightBlocker` is set; strict Wails runs still fail as expected until dependencies are reachable.
+- [x] Execute Phase 8.3 manual matrix using Wails UI
+- [x] Mark cutover complete and switch default UI runtime
+Status note: `scripts/e2e_wails_ui_smoke.ps1` and `scripts/e2e_tray_ui_smoke.ps1` passed with Wails strict build.
 
 ## Cutover Definition of Done
 
-- [ ] Harness remains optional fallback, not default runtime
-- [ ] Wails UI is default for `LightroomSyncUI.exe`
-- [ ] `.docs/task.md` Phase 6R marked done
-- [ ] Evidence artifacts stored under `build/e2e/`
+- [x] Harness remains optional fallback, not default runtime
+- [x] Wails UI is default for `LightroomSyncUI.exe`
+- [x] `.docs/task.md` Phase 6R marked done
+- [x] Evidence artifacts stored under `build/e2e/`

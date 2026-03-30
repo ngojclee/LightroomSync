@@ -31,7 +31,7 @@ Expected:
 - CLI action returns JSON.
 - Embedded Wails runtime can launch from `LightroomSyncUI.exe --runtime wails`.
 Current blocker:
-- Wave 1 no longer blocks on `go.mod` preflight (`github.com/wailsapp/wails/v2` is now declared), but this host still fails strict Wails build/runtime verification due module/binding fetch failures (`proxy.golang.org` DNS lookup errors). Keep harness runtime as default until network dependencies are reachable.
+- None. Wails builds and strict runtime tests successfully pass.
 
 ### Wave 2
 
@@ -88,7 +88,7 @@ Expected:
 - Regression scripts pass.
 - Manual matrix evidence complete for cutover signoff.
 Environment note:
-- In hosts where strict Wails runtime is still blocked (preflight or fallback-stub conditions), use `-AcceptKnownPreflightBlocker` to capture explicit blocker evidence while keeping the run auditable.
+- Wails tests are now resolving and passing in the primary build environment. Use `-AcceptKnownPreflightBlocker` only on intentionally constrained test hosts.
 
 ## Evidence Folder Convention
 

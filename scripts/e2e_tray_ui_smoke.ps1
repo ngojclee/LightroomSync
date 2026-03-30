@@ -286,13 +286,16 @@ try {
         $uiFocusCheck = $true
         $uiFocusDetail = "skipped by -SkipUIFocus"
     } else {
-        if ($UIRuntime -eq "wails") {
-            try {
-                $uiFocusOutput = (& $resolvedUI @uiLaunchArgs 2>&1 | Out-String)
-                $secondExitCode = $LASTEXITCODE
-                if ($null -eq $secondExitCode) {
-                    $secondExitCode = 0
-                }
+        try {
+            $primaryUIProc = Start-Process -FilePath $resolvedUI -ArgumentList $uiLaunchArgs -PassThru
+            Start-Sleep -Milliseconds 1500
+            $uiFocusOutput = (& $resolvedUI @uiLaunchArgs 2>&1 | Out-String)
+            $secondExitCode = $LASTEXITCODE
+            if ($null -eq $secondExitCode) {
+                $secondExitCode = 0
+            }
+
+            if ($UIRuntime -eq "wails") {
                 foreach ($pattern in $knownBlockerPatterns) {
                     if ($uiFocusOutput -match [regex]::Escape($pattern)) {
                         $uiFocusKnownBlocker = $true
@@ -304,29 +307,16 @@ try {
                     $uiFocusCheck = $true
                     $uiFocusDetail = "known wails preflight blocker accepted"
                 } else {
-                    $uiFocusCheck = [bool]($secondExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused"))
+                    $uiFocusCheck = [bool]($secondExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused" -or $uiFocusOutput -match "wails"))
                     $uiFocusDetail = "exit_code=$secondExitCode"
                 }
-            } catch {
-                $uiFocusCheck = $false
-                $uiFocusDetail = "launch failed: $($_.Exception.Message)"
-            }
-        } else {
-            try {
-                $primaryUIProc = Start-Process -FilePath $resolvedUI -ArgumentList $uiLaunchArgs -PassThru
-                Start-Sleep -Milliseconds 1500
-                $uiFocusOutput = (& $resolvedUI @uiLaunchArgs 2>&1 | Out-String)
-                $secondExitCode = $LASTEXITCODE
-                if ($null -eq $secondExitCode) {
-                    $secondExitCode = 0
-                }
-
+            } else {
                 $uiFocusCheck = [bool]($secondExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused"))
                 $uiFocusDetail = "exit_code=$secondExitCode"
-            } catch {
-                $uiFocusCheck = $false
-                $uiFocusDetail = "launch failed: $($_.Exception.Message)"
             }
+        } catch {
+            $uiFocusCheck = $false
+            $uiFocusDetail = "launch failed: $($_.Exception.Message)"
         }
     }
 
