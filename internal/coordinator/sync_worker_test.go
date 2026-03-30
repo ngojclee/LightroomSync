@@ -143,3 +143,56 @@ func TestSyncWorker_WatchdogAlertsOnTimeout(t *testing.T) {
 		t.Fatal("expected watchdog timeout alert")
 	}
 }
+
+func TestSyncWorker_PauseResumeBlocksQueueProcessing(t *testing.T) {
+	bus := NewEventBus(16)
+	state := NewAppState()
+	worker := NewSyncWorker(4, state, bus)
+
+	worker.Pause()
+	if !worker.IsPaused() {
+		t.Fatal("expected worker to be paused")
+	}
+	if !state.Snapshot().SyncPaused {
+		t.Fatal("expected app state sync_paused to be true after pause")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go worker.Run(ctx)
+
+	executedCh := make(chan struct{}, 1)
+	err := worker.Enqueue(SyncJob{
+		Name: "paused-job",
+		Execute: func(ctx context.Context) error {
+			select {
+			case executedCh <- struct{}{}:
+			default:
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	select {
+	case <-executedCh:
+		t.Fatal("job should not run while worker is paused")
+	case <-time.After(120 * time.Millisecond):
+	}
+
+	worker.Resume()
+	if worker.IsPaused() {
+		t.Fatal("expected worker to be resumed")
+	}
+	if state.Snapshot().SyncPaused {
+		t.Fatal("expected app state sync_paused to be false after resume")
+	}
+
+	select {
+	case <-executedCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("job did not run after resume")
+	}
+}

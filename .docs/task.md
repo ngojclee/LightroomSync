@@ -166,7 +166,7 @@
 
 - [ ] Fetch list from Agent (`GetBackups`)
 - [ ] Implement sync-selected workflow (`SyncBackup`)
-- [ ] Add pause/resume sync control via Agent state
+- [x] Add pause/resume sync control via Agent state
 - [x] Implement Agent-side IPC commands `GetBackups` + `SyncBackup` and temporary GUI harness controls for manual testing
 
 ### 6.3 Log Tab

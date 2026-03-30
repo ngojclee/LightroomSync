@@ -557,6 +557,20 @@ func main() {
 				Data:    map[string]string{"queued": "true"},
 				Code:    ipc.CodeOK,
 			}
+		case ipc.CmdPauseSync:
+			syncWorker.Pause()
+			return ipc.Response{
+				Success: true,
+				Data:    appState.Snapshot(),
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdResumeSync:
+			syncWorker.Resume()
+			return ipc.Response{
+				Success: true,
+				Data:    appState.Snapshot(),
+				Code:    ipc.CodeOK,
+			}
 		case ipc.CmdSyncBackup:
 			current := cfgMgr.Get()
 			if strings.TrimSpace(current.CatalogPath) == "" {

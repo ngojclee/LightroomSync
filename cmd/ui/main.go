@@ -31,7 +31,7 @@ type actionEnvelope struct {
 }
 
 func main() {
-	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup)")
+	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync)")
 	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
 	flag.Parse()
@@ -96,6 +96,10 @@ func runAction(action, payload, pipeName string) actionEnvelope {
 		return actionGetBackups(pipeName)
 	case "sync-backup":
 		return actionSyncBackup(pipeName, payload)
+	case "pause-sync":
+		return actionPauseSync(pipeName)
+	case "resume-sync":
+		return actionResumeSync(pipeName)
 	default:
 		return actionEnvelope{
 			OK:      false,
@@ -161,6 +165,58 @@ func actionSyncNow(pipeName string) actionEnvelope {
 	defer cancel()
 
 	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdSyncNow})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionPauseSync(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdPauseSync})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionResumeSync(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdResumeSync})
 	if err != nil {
 		return actionEnvelope{
 			OK:      false,
@@ -395,60 +451,80 @@ $form.Controls.Add($subtitle)
 
 $btnPing = New-Object System.Windows.Forms.Button
 $btnPing.Text = 'Ping Agent'
-$btnPing.Width = 120
+$btnPing.Width = 100
 $btnPing.Height = 36
 $btnPing.Location = New-Object System.Drawing.Point(22, 80)
 $form.Controls.Add($btnPing)
 
 $btnStatus = New-Object System.Windows.Forms.Button
 $btnStatus.Text = 'Refresh Status'
-$btnStatus.Width = 130
+$btnStatus.Width = 120
 $btnStatus.Height = 36
-$btnStatus.Location = New-Object System.Drawing.Point(150, 80)
+$btnStatus.Location = New-Object System.Drawing.Point(128, 80)
 $form.Controls.Add($btnStatus)
 
 $btnGetConfig = New-Object System.Windows.Forms.Button
 $btnGetConfig.Text = 'Get Config'
-$btnGetConfig.Width = 120
+$btnGetConfig.Width = 110
 $btnGetConfig.Height = 36
-$btnGetConfig.Location = New-Object System.Drawing.Point(290, 80)
+$btnGetConfig.Location = New-Object System.Drawing.Point(254, 80)
 $form.Controls.Add($btnGetConfig)
 
 $btnGetBackups = New-Object System.Windows.Forms.Button
 $btnGetBackups.Text = 'Get Backups'
-$btnGetBackups.Width = 120
+$btnGetBackups.Width = 115
 $btnGetBackups.Height = 36
-$btnGetBackups.Location = New-Object System.Drawing.Point(420, 80)
+$btnGetBackups.Location = New-Object System.Drawing.Point(370, 80)
 $form.Controls.Add($btnGetBackups)
 
 $btnSyncNow = New-Object System.Windows.Forms.Button
 $btnSyncNow.Text = 'Sync Now'
-$btnSyncNow.Width = 120
+$btnSyncNow.Width = 100
 $btnSyncNow.Height = 36
-$btnSyncNow.Location = New-Object System.Drawing.Point(550, 80)
+$btnSyncNow.Location = New-Object System.Drawing.Point(491, 80)
 $btnSyncNow.BackColor = [System.Drawing.Color]::FromArgb(11, 138, 106)
 $btnSyncNow.ForeColor = [System.Drawing.Color]::White
 $form.Controls.Add($btnSyncNow)
 
+$btnPauseSync = New-Object System.Windows.Forms.Button
+$btnPauseSync.Text = 'Pause Sync'
+$btnPauseSync.Width = 95
+$btnPauseSync.Height = 36
+$btnPauseSync.Location = New-Object System.Drawing.Point(597, 80)
+$btnPauseSync.BackColor = [System.Drawing.Color]::FromArgb(209, 117, 41)
+$btnPauseSync.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnPauseSync)
+
+$btnResumeSync = New-Object System.Windows.Forms.Button
+$btnResumeSync.Text = 'Resume'
+$btnResumeSync.Width = 95
+$btnResumeSync.Height = 36
+$btnResumeSync.Location = New-Object System.Drawing.Point(698, 80)
+$btnResumeSync.BackColor = [System.Drawing.Color]::FromArgb(52, 122, 189)
+$btnResumeSync.ForeColor = [System.Drawing.Color]::White
+$form.Controls.Add($btnResumeSync)
+
 $btnClose = New-Object System.Windows.Forms.Button
 $btnClose.Text = 'Close'
-$btnClose.Width = 90
+$btnClose.Width = 70
 $btnClose.Height = 36
-$btnClose.Location = New-Object System.Drawing.Point(680, 80)
+$btnClose.Location = New-Object System.Drawing.Point(799, 80)
 $form.Controls.Add($btnClose)
 
 $chkAutoSync = New-Object System.Windows.Forms.CheckBox
 $chkAutoSync.Text = 'Auto Sync'
 $chkAutoSync.AutoSize = $true
-$chkAutoSync.Location = New-Object System.Drawing.Point(790, 89)
+$chkAutoSync.Location = New-Object System.Drawing.Point(873, 89)
 $form.Controls.Add($chkAutoSync)
 
 $btnSaveAutoSync = New-Object System.Windows.Forms.Button
 $btnSaveAutoSync.Text = 'Save'
-$btnSaveAutoSync.Width = 70
+$btnSaveAutoSync.Width = 45
 $btnSaveAutoSync.Height = 30
-$btnSaveAutoSync.Location = New-Object System.Drawing.Point(880, 84)
+$btnSaveAutoSync.Location = New-Object System.Drawing.Point(925, 84)
 $form.Controls.Add($btnSaveAutoSync)
+
+$btnResumeSync.Enabled = $false
 
 $lblReachTitle = New-Object System.Windows.Forms.Label
 $lblReachTitle.Text = 'Agent Reachable:'
@@ -603,6 +679,11 @@ function Invoke-Action([string]$action, [string]$payload = '') {
             if ($obj.data) {
                 if ($obj.data.status_text) { $lblStatusValue.Text = [string]$obj.data.status_text }
                 if ($obj.data.tray_color) { $lblTrayValue.Text = [string]$obj.data.tray_color }
+                if ($null -ne $obj.data.sync_paused) {
+                    $paused = [bool]$obj.data.sync_paused
+                    $btnPauseSync.Enabled = -not $paused
+                    $btnResumeSync.Enabled = $paused
+                }
                 if ($null -ne $obj.data.auto_sync -or $obj.data.backup_folder -or $obj.data.catalog_path) {
                     Render-Config $obj.data
                 }
@@ -631,6 +712,16 @@ $btnGetBackups.Add_Click({ Invoke-Action 'get-backups' })
 $btnSyncNow.Add_Click({
     Invoke-Action 'sync-now'
     Start-Sleep -Milliseconds 220
+    Invoke-Action 'status'
+})
+$btnPauseSync.Add_Click({
+    Invoke-Action 'pause-sync'
+    Start-Sleep -Milliseconds 120
+    Invoke-Action 'status'
+})
+$btnResumeSync.Add_Click({
+    Invoke-Action 'resume-sync'
+    Start-Sleep -Milliseconds 120
     Invoke-Action 'status'
 })
 $btnSaveAutoSync.Add_Click({

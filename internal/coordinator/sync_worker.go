@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -34,6 +35,10 @@ type SyncWorker struct {
 	bus      *EventBus
 	queue    chan SyncJob
 	watchdog *Watchdog
+
+	pauseMu  sync.RWMutex
+	paused   bool
+	resumeCh chan struct{}
 }
 
 // NewSyncWorker creates a one-at-a-time worker with bounded queue.
@@ -41,16 +46,52 @@ func NewSyncWorker(queueSize int, state *AppState, bus *EventBus) *SyncWorker {
 	if queueSize <= 0 {
 		queueSize = 16
 	}
+	resumeCh := make(chan struct{})
+	close(resumeCh)
 	return &SyncWorker{
-		state: state,
-		bus:   bus,
-		queue: make(chan SyncJob, queueSize),
+		state:    state,
+		bus:      bus,
+		queue:    make(chan SyncJob, queueSize),
+		resumeCh: resumeCh,
 	}
 }
 
 // SetWatchdog attaches an optional operation watchdog for timeout alerts.
 func (w *SyncWorker) SetWatchdog(wd *Watchdog) {
 	w.watchdog = wd
+}
+
+// Pause prevents new sync jobs from starting until Resume is called.
+func (w *SyncWorker) Pause() {
+	w.pauseMu.Lock()
+	defer w.pauseMu.Unlock()
+	if w.paused {
+		return
+	}
+
+	w.paused = true
+	w.resumeCh = make(chan struct{})
+	w.state.SetSyncPaused(true)
+}
+
+// Resume allows queued sync jobs to continue processing.
+func (w *SyncWorker) Resume() {
+	w.pauseMu.Lock()
+	defer w.pauseMu.Unlock()
+	if !w.paused {
+		return
+	}
+
+	w.paused = false
+	close(w.resumeCh)
+	w.state.SetSyncPaused(false)
+}
+
+// IsPaused reports whether the worker is currently paused.
+func (w *SyncWorker) IsPaused() bool {
+	w.pauseMu.RLock()
+	defer w.pauseMu.RUnlock()
+	return w.paused
 }
 
 // Enqueue attempts to queue a sync job without blocking.
@@ -74,7 +115,29 @@ func (w *SyncWorker) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case job := <-w.queue:
+			if !w.waitUntilResumed(ctx) {
+				return
+			}
 			w.process(ctx, job)
+		}
+	}
+}
+
+func (w *SyncWorker) waitUntilResumed(ctx context.Context) bool {
+	for {
+		w.pauseMu.RLock()
+		paused := w.paused
+		resumeCh := w.resumeCh
+		w.pauseMu.RUnlock()
+
+		if !paused {
+			return true
+		}
+
+		select {
+		case <-ctx.Done():
+			return false
+		case <-resumeCh:
 		}
 	}
 }
