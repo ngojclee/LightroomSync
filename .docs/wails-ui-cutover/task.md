@@ -5,6 +5,12 @@
 > Target: Real Wails GUI as default UI runtime
 >  
 > Current Focus: Wave 1 (M1) Runtime Bootstrap
+>  
+> Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
+
+## Readiness
+
+- [x] Verify local Wails CLI availability (`wails version` => `v2.12.0`)
 
 ## M1. Runtime Bootstrap
 

@@ -187,6 +187,7 @@
 > Execution guide: [.docs/wails-ui-cutover/execution.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/execution.md)
 
 - [x] Expand Wails cutover planning docs (waves, gates, command checklist)
+- [x] Add Wave 1 bootstrap spec + readiness check (`wails version`)
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
 - [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)

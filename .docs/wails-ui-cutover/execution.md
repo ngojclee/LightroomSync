@@ -3,6 +3,7 @@
 > Companion docs:
 > - [Plan](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/plan.md)
 > - [Task](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/task.md)
+> - [Wave 1 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 
 ## Recommended Working Sequence
 
@@ -17,6 +18,7 @@
 ### Wave 1
 
 ```powershell
+wails version
 pwsh -File scripts/build_windows.ps1 -SkipTests
 .\build\bin\LightroomSyncUI.exe --action ping
 ```
