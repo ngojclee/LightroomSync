@@ -183,7 +183,10 @@
 ## Phase 6R: Real Wails GUI Cutover (Pending)
 
 > Detailed tracker: [.docs/wails-ui-cutover/task.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/task.md)
+>  
+> Execution guide: [.docs/wails-ui-cutover/execution.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/execution.md)
 
+- [x] Expand Wails cutover planning docs (waves, gates, command checklist)
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
 - [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
