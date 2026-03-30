@@ -293,3 +293,11 @@ To ship the real GUI, we need **6 implementation steps**:
 6. **Validation + Switch Default**
    - Add Wails-specific smoke checks.
    - Run Phase 8.3 manual matrix with Wails UI and switch default UI target after pass.
+
+## 12. Premium UI Overhaul (Wave 4)
+
+- **Layout Structure**: Refactor monolithic shell to a modern Sidebar Dashboard navigation.
+- **Design Tokens**: Implement CSS glassmorphism, responsive grids, and variables (`:root` definitions) for the "Premium Editorial" design system.
+- **Theme Engine**: Support OS-native / togglable Dark/Light modes cleanly.
+- **Native OS Elements**: Implement Wails native Directory/File picking dialogs directly into Settings inputs to enhance usability.
+- **Goal**: Ship a highly polished GUI that feels premium upon first launch without sacrificing technical robustness.
