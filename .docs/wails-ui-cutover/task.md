@@ -10,6 +10,10 @@
 >  
 > Wave 2 spec: [wave2-uiapi-refactor-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
 >  
+> Wave 3 spec: [wave3-frontend-shell-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave3-frontend-shell-spec.md)
+>  
+> UI command map: [ui-command-contract-map.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/ui-command-contract-map.md)
+>  
 > Timeline: [timeline-and-dependencies.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)
 
 ## Readiness
@@ -41,6 +45,7 @@
 - [ ] Implement Backups tab (list + sync selected)
 - [ ] Implement Logs tab (level filter + live tail)
 - [ ] Implement Update tab (check + download)
+- [ ] Freeze tab-to-command contract map for Wave 3/4 implementation
 - [ ] Verification: all tabs render in offline mode (no crash)
 
 ## M4. Data/State Flow

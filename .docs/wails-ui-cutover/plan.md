@@ -16,6 +16,7 @@
 - `cmd/ui/main.go` đang chứa cả CLI actions lẫn temporary Windows Forms harness nên cần tách để tái sử dụng.
 - `frontend/` hiện chưa có code, nên milestone M3/M4 là phần khối lượng chính.
 - Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
+- Wave 3 frontend shell contract and tab-command mapping are now explicitly documented for implementation alignment.
 
 ## Execution Order (6 Waves)
 
@@ -147,4 +148,6 @@ Gate:
 
 - [Wave 1 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 - [Wave 2 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
+- [Wave 3 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave3-frontend-shell-spec.md)
+- [UI Command Contract Map](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/ui-command-contract-map.md)
 - [Timeline & Dependencies](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)

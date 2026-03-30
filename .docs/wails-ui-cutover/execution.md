@@ -5,6 +5,8 @@
 > - [Task](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/task.md)
 > - [Wave 1 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 > - [Wave 2 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
+> - [Wave 3 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave3-frontend-shell-spec.md)
+> - [UI Command Map](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/ui-command-contract-map.md)
 > - [Timeline](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)
 
 ## Recommended Working Sequence
