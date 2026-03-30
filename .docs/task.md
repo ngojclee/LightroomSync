@@ -249,6 +249,14 @@ Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_
 - [ ] UI responsiveness validation under network stress
 - [ ] Installer upgrade/uninstall regression
 
+## Phase 9: Premium UI Overhaul (Wave 4)
+
+- [x] Use Stitch MCP to generate Premium Editorial Design System (Light/Dark mode)
+- [x] Refactor frontend/src/styles.css with complete UI design tokens (CSS variables)
+- [x] Refactor frontend/src/App.ts to apply Sidebar layout and new CSS structure
+- [x] Implement Light/Dark mode functionality with 'btn-theme-toggle'
+- [x] Re-run `e2e_ui_command_parity.ps1` to ensure DOM refs and event bindings remain intact
+
 ## Post-Launch
 
 - [ ] Update project memory docs (`CLAUDE.md`) with final architecture

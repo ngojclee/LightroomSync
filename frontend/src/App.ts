@@ -81,6 +81,7 @@ interface Refs {
   updateNotes: HTMLTextAreaElement;
   btnCheckUpdate: HTMLButtonElement;
   btnDownloadUpdate: HTMLButtonElement;
+  btnThemeToggle: HTMLButtonElement;
 }
 
 function envValue(key: string, fallback = "unknown"): string {
@@ -218,113 +219,206 @@ class FrontendShell {
           <span class="spacer"></span>
           <span class="last-refresh">Last refresh: <strong id="last-refresh">-</strong></span>
         </section>
-
-        <section id="banner" class="banner banner-hidden">
-          <span id="banner-text"></span>
-        </section>
-
-        <nav class="tabs">
-          <button class="tab-button is-active" data-tab="status">Status</button>
-          <button class="tab-button" data-tab="settings">Settings</button>
-          <button class="tab-button" data-tab="backups">Backups</button>
-          <button class="tab-button" data-tab="logs">Logs</button>
-          <button class="tab-button" data-tab="update">Update</button>
-        </nav>
-
-        <section class="tab-panels">
-          <div id="panel-status" class="tab-panel">
-            <h2>Status</h2>
-            <div class="grid two-col">
-              <div><label>Status</label><span id="status-text">-</span></div>
-              <div><label>Tray color</label><span id="status-tray-color">-</span></div>
-              <div><label>Sync in progress</label><span id="status-sync-progress">-</span></div>
-              <div><label>Sync paused</label><span id="status-sync-paused">-</span></div>
-              <div class="full"><label>Monitor errors</label><span id="status-monitor-errors">-</span></div>
-            </div>
-            <div class="actions">
-              <button id="btn-refresh-status">Refresh Status</button>
-              <button id="btn-sync-now">Sync Now</button>
-              <button id="btn-pause-sync">Pause</button>
-              <button id="btn-resume-sync">Resume</button>
-            </div>
+      <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="brand-icon">❖</div>
+            <div class="brand-name">Lightroom Sync</div>
           </div>
+          <nav class="tabs-nav">
+            <button class="tab-button is-active" data-tab="status">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+              Status
+            </button>
+            <button class="tab-button" data-tab="settings">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Settings
+            </button>
+            <button class="tab-button" data-tab="backups">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Backups
+            </button>
+            <button class="tab-button" data-tab="logs">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+              Logs
+            </button>
+            <button class="tab-button" data-tab="update">
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
+              Update
+            </button>
+          </nav>
+          <div class="sidebar-footer">
+            <button id="btn-theme-toggle" class="theme-toggle">Try Light Mode</button>
+          </div>
+        </aside>
 
-          <div id="panel-settings" class="tab-panel is-hidden">
-            <h2>Settings</h2>
-            <div class="grid two-col">
-              <div class="full">
-                <label for="cfg-backup-folder">Backup Folder</label>
-                <input id="cfg-backup-folder" type="text" />
+        <!-- Main Workspace -->
+        <main class="main-area">
+          <header class="topbar">
+            <div class="topbar-left">
+              <h1 id="view-title">Dashboard Status</h1>
+              <span id="connection-badge" class="badge disconnected">Disconnected</span>
+              <span id="connection-detail" class="connection-detail" style="display:none;"></span>
+            </div>
+            <div class="runtime-meta">
+              <div>Version: <strong>${this.version}</strong></div>
+              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Pipe: ${this.pipeName}</div>
+            </div>
+          </header>
+
+          <div class="content-wrapper">
+            <div id="banner" class="banner banner-hidden">
+              <span id="banner-text"></span>
+            </div>
+
+            <!-- Panel: Status -->
+            <div id="panel-status" class="tab-panel">
+              <div class="card status-grid">
+                <div class="status-card">
+                  <div class="status-label">Overall Status</div>
+                  <div class="status-value" id="status-text">-</div>
+                </div>
+                <div class="status-card">
+                  <div class="status-label">Tray Status Color</div>
+                  <div class="status-value" id="status-tray-color">-</div>
+                </div>
+                <div class="status-card">
+                  <div class="status-label">Sync Progress</div>
+                  <div class="status-value syncing" id="status-sync-progress">-</div>
+                </div>
+                <div class="status-card">
+                  <div class="status-label">Paused State</div>
+                  <div class="status-value" id="status-sync-paused">-</div>
+                </div>
+                <div class="status-card" style="grid-column: 1 / -1;">
+                  <div class="status-label">Monitor Errors</div>
+                  <div class="status-value" id="status-monitor-errors" style="color: var(--danger); font-size: 1rem;">-</div>
+                </div>
               </div>
-              <div class="full">
-                <label for="cfg-catalog-path">Catalog Path</label>
-                <input id="cfg-catalog-path" type="text" />
-              </div>
-              <div><label for="cfg-heartbeat">Heartbeat Interval</label><input id="cfg-heartbeat" type="number" min="1" /></div>
-              <div><label for="cfg-check-interval">Check Interval</label><input id="cfg-check-interval" type="number" min="1" /></div>
-              <div><label for="cfg-lock-timeout">Lock Timeout</label><input id="cfg-lock-timeout" type="number" min="1" /></div>
-              <div><label for="cfg-max-backups">Max Catalog Backups</label><input id="cfg-max-backups" type="number" min="1" /></div>
-              <div class="full">
-                <label for="cfg-preset-categories">Preset Categories (comma-separated)</label>
-                <input id="cfg-preset-categories" type="text" />
-              </div>
-              <div class="checks">
-                <label><input id="cfg-start-with-windows" type="checkbox" /> Start with Windows</label>
-                <label><input id="cfg-start-minimized" type="checkbox" /> Start minimized</label>
-                <label><input id="cfg-minimize-to-tray" type="checkbox" /> Minimize to tray</label>
-                <label><input id="cfg-auto-sync" type="checkbox" /> Auto sync</label>
-                <label><input id="cfg-preset-sync-enabled" type="checkbox" /> Preset sync enabled</label>
+
+              <div class="actions">
+                <button id="btn-sync-now" class="primary">Sync Now</button>
+                <button id="btn-pause-sync">Pause Sync</button>
+                <button id="btn-resume-sync">Resume Sync</button>
+                <button id="btn-refresh-status" style="margin-left: auto;">Refresh Status</button>
+                <span id="last-refresh" style="align-self: flex-end; font-size: 0.8rem; color: var(--text-muted); display:inline-block; margin-bottom: 12px; margin-left:12px;">-</span>
               </div>
             </div>
-            <div class="actions">
-              <button id="btn-get-config">Reload Config</button>
-              <button id="btn-save-config">Save Config</button>
-            </div>
-          </div>
 
-          <div id="panel-backups" class="tab-panel is-hidden">
-            <h2>Backups</h2>
-            <select id="backups-list" size="9"></select>
-            <div class="helper" id="backups-helper">No backups loaded.</div>
-            <div class="actions">
-              <button id="btn-refresh-backups">Refresh Backups</button>
-              <button id="btn-sync-selected">Sync Selected Backup</button>
+            <!-- Panel: Settings -->
+            <div id="panel-settings" class="tab-panel is-hidden">
+              <div class="card">
+                <h2>Configuration Profile</h2>
+                <div class="grid two-col">
+                  <div class="full">
+                    <label for="cfg-backup-folder">Backup Destination Directory</label>
+                    <input id="cfg-backup-folder" type="text" placeholder="D:\\Backups" />
+                  </div>
+                  <div class="full">
+                    <label for="cfg-catalog-path">Lightroom Catalog Source Path</label>
+                    <input id="cfg-catalog-path" type="text" placeholder="E:\\Lightroom\\Master.lrcat" />
+                  </div>
+                  <div>
+                    <label for="cfg-heartbeat">Heartbeat Send Interval (s)</label>
+                    <input id="cfg-heartbeat" type="number" min="1" />
+                  </div>
+                  <div>
+                    <label for="cfg-check-interval">File Watch Check Interval (s)</label>
+                    <input id="cfg-check-interval" type="number" min="1" />
+                  </div>
+                  <div>
+                    <label for="cfg-lock-timeout">Catalog Lock Timeout (s)</label>
+                    <input id="cfg-lock-timeout" type="number" min="1" />
+                  </div>
+                  <div>
+                    <label for="cfg-max-backups">Max Retained Backups limit</label>
+                    <input id="cfg-max-backups" type="number" min="1" />
+                  </div>
+                  <div class="full">
+                    <label for="cfg-preset-categories">Preset Subject Categories (comma-listed)</label>
+                    <input id="cfg-preset-categories" type="text" placeholder="Wedding, Studio, Street" />
+                  </div>
+                  <div class="checks">
+                    <label><input id="cfg-start-with-windows" type="checkbox" /> Launch cleanly on Windows Startup</label>
+                    <label><input id="cfg-start-minimized" type="checkbox" /> Keep Window Hidden at Launch</label>
+                    <label><input id="cfg-minimize-to-tray" type="checkbox" /> Route Close button to System Tray</label>
+                    <label><input id="cfg-auto-sync" type="checkbox" /> Enable Automatic Background Syncing</label>
+                    <label><input id="cfg-preset-sync-enabled" type="checkbox" /> Activate Secondary Preset Sync System</label>
+                  </div>
+                </div>
+                <div class="actions" style="margin-top: 32px; justify-content: flex-end;">
+                  <button id="btn-get-config">Re-fetch Profile</button>
+                  <button id="btn-save-config" class="primary">Save Configuration</button>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div id="panel-logs" class="tab-panel is-hidden">
-            <h2>Logs</h2>
-            <div class="actions inline">
-              <label for="logs-level">Level</label>
-              <select id="logs-level">
-                <option>ALL</option>
-                <option>INFO</option>
-                <option>WARN</option>
-                <option>ERROR</option>
-                <option>DEBUG</option>
-              </select>
-              <button id="btn-refresh-logs">Refresh Logs</button>
-              <button id="btn-clear-logs">Clear View</button>
+            <!-- Panel: Backups -->
+            <div id="panel-backups" class="tab-panel is-hidden">
+              <div class="card">
+                <h2>Generated Backups Archive</h2>
+                <div class="backup-list-container">
+                  <select id="backups-list" size="9"></select>
+                </div>
+                <div class="helper" id="backups-helper" style="margin-top: 12px; margin-bottom: 24px;">No backups cataloged.</div>
+                <div class="actions">
+                  <button id="btn-refresh-backups">Query Backups Archive</button>
+                  <button id="btn-sync-selected" class="primary">Initiate Restore for Selected</button>
+                </div>
+              </div>
             </div>
-            <pre id="logs-output" class="logs-output">(empty)</pre>
-          </div>
 
-          <div id="panel-update" class="tab-panel is-hidden">
-            <h2>Update</h2>
-            <div class="grid two-col">
-              <div><label>Current Version</label><span id="upd-current-version">-</span></div>
-              <div><label>Latest Version</label><span id="upd-latest-version">-</span></div>
-              <div class="full"><label>Has Update</label><span id="upd-has-update">-</span></div>
+            <!-- Panel: Logs -->
+            <div id="panel-logs" class="tab-panel is-hidden">
+              <div class="card">
+                <h2>Transmission Event Logs</h2>
+                <div class="log-filters">
+                  <label for="logs-level" style="margin: 0; align-self: center;">Verbosity</label>
+                  <select id="logs-level" style="width: auto;">
+                    <option>ALL</option>
+                    <option>INFO</option>
+                    <option>WARN</option>
+                    <option>ERROR</option>
+                    <option>DEBUG</option>
+                  </select>
+                  <button id="btn-refresh-logs">Reload Output</button>
+                  <button id="btn-clear-logs">Purge Viewport</button>
+                </div>
+                <pre id="logs-output" class="logs-console">(idle output buffer)</pre>
+              </div>
             </div>
-            <label for="upd-release-notes">Release Notes</label>
-            <textarea id="upd-release-notes" rows="8" readonly></textarea>
-            <div class="actions">
-              <button id="btn-check-update">Check Update</button>
-              <button id="btn-download-update">Download Update</button>
+
+            <!-- Panel: Update -->
+            <div id="panel-update" class="tab-panel is-hidden">
+               <div class="card">
+                <h2>Software Releases Lifecycle</h2>
+                <div class="grid two-col" style="margin-bottom: 24px;">
+                  <div class="status-card">
+                    <div class="status-label">Running Build</div>
+                    <div class="status-value" id="upd-current-version">-</div>
+                  </div>
+                  <div class="status-card">
+                    <div class="status-label">Upstream Release</div>
+                    <div class="status-value" id="upd-latest-version">-</div>
+                  </div>
+                  <div class="status-card" style="grid-column: 1 / -1; align-items:center;">
+                    <div class="status-label">Upgrade Viability</div>
+                    <div class="status-value" id="upd-has-update">-</div>
+                  </div>
+                </div>
+                <label for="upd-release-notes">Changelog & Patch Notes</label>
+                <textarea id="upd-release-notes" rows="8" readonly style="margin-bottom: 24px;"></textarea>
+                <div class="actions" style="justify-content: flex-end;">
+                  <button id="btn-check-update">Determine Upgrade Path</button>
+                  <button id="btn-download-update" class="primary">Deploy Software Update</button>
+                </div>
+               </div>
             </div>
+
           </div>
-        </section>
-      </main>
+        </main>
+      </div>
     `;
   }
 
@@ -381,7 +475,8 @@ class FrontendShell {
       updateHasUpdate: byId<HTMLSpanElement>("upd-has-update"),
       updateNotes: byId<HTMLTextAreaElement>("upd-release-notes"),
       btnCheckUpdate: byId<HTMLButtonElement>("btn-check-update"),
-      btnDownloadUpdate: byId<HTMLButtonElement>("btn-download-update")
+      btnDownloadUpdate: byId<HTMLButtonElement>("btn-download-update"),
+      btnThemeToggle: byId<HTMLButtonElement>("btn-theme-toggle")
     };
   }
 
@@ -428,6 +523,29 @@ class FrontendShell {
 
     this.refs.btnCheckUpdate.addEventListener("click", () => void this.refreshUpdate());
     this.refs.btnDownloadUpdate.addEventListener("click", () => void this.downloadUpdate());
+
+    this.refs.btnThemeToggle.addEventListener("click", () => {
+      const docEl = document.documentElement;
+      const isLight = docEl.getAttribute("data-theme") === "light";
+      if (isLight) {
+        docEl.removeAttribute("data-theme");
+        this.refs.btnThemeToggle.textContent = "Try Light Mode";
+      } else {
+        docEl.setAttribute("data-theme", "light");
+        this.refs.btnThemeToggle.textContent = "Try Dark Mode";
+      }
+    });
+
+    // Handle Title update per tab
+    this.refs.tabButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const tab = button.dataset.tab;
+        const viewTitle = this.root.querySelector("#view-title");
+        if (viewTitle && tab) {
+            viewTitle.textContent = tab.charAt(0).toUpperCase() + tab.slice(1) + " Dashboard";
+        }
+      });
+    });
   }
 
   private bindLifecycleEvents(): void {
