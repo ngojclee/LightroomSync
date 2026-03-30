@@ -96,6 +96,7 @@ type AppStatus struct {
 	LockMonitorErrors      int    `json:"lock_monitor_errors"`
 	LastResumeGapSeconds   int    `json:"last_resume_gap_seconds"`
 	AutoSync               bool   `json:"auto_sync"`
+	CriticalError          string `json:"critical_error,omitempty"`
 }
 
 // BackupInfo describes a single backup zip file.

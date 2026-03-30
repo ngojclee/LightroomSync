@@ -191,6 +191,19 @@ func (o *CatalogSyncOrchestrator) enqueueManifestLocked(manifest syncpkg.Manifes
 		OperationID:    operationID,
 		MaxRunDuration: 120 * time.Second,
 		Execute: func(ctx context.Context) error {
+			zipPath := filepath.Join(o.backupDir, filepath.FromSlash(manifest.ZipFile))
+
+			// Pre-validate network backup to prevent overwriting with corrupted files
+			if err := syncpkg.ValidateZipIntegrity(ctx, zipPath); err != nil {
+				if o.appState != nil {
+					o.appState.SetError("Network Backup Corrupted!")
+				}
+				return fmt.Errorf("network backup corrupted, sync aborted: %w", err)
+			}
+			if o.appState != nil {
+				o.appState.ClearError()
+			}
+
 			maxBackups := 5
 			if o.getMaxBackups != nil && o.getMaxBackups() > 0 {
 				maxBackups = o.getMaxBackups()
@@ -204,7 +217,6 @@ func (o *CatalogSyncOrchestrator) enqueueManifestLocked(manifest syncpkg.Manifes
 				o.logf("[WARN] network backup retention cleanup failed: %v", err)
 			}
 
-			zipPath := filepath.Join(o.backupDir, filepath.FromSlash(manifest.ZipFile))
 			return syncpkg.RestoreCatalogFromZip(ctx, zipPath, o.catalogDir, syncpkg.DefaultRestoreOptions())
 		},
 	})

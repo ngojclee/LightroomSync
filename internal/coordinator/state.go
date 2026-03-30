@@ -26,6 +26,7 @@ type AppState struct {
 	lockMonitorErrors      int
 	lastResumeGapSeconds   int
 	autoSync               bool
+	criticalError          string
 }
 
 func NewAppState() *AppState {
@@ -55,6 +56,7 @@ func (s *AppState) Snapshot() ipc.AppStatus {
 		LockMonitorErrors:      s.lockMonitorErrors,
 		LastResumeGapSeconds:   s.lastResumeGapSeconds,
 		AutoSync:               s.autoSync,
+		CriticalError:          s.criticalError,
 	}
 }
 
@@ -84,6 +86,20 @@ func (s *AppState) SetWarning(text string) {
 	defer s.mu.Unlock()
 	s.trayColor = "orange"
 	s.statusText = text
+}
+
+func (s *AppState) SetError(text string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.criticalError = text
+	s.recomputeDerivedStatusLocked()
+}
+
+func (s *AppState) ClearError() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.criticalError = ""
+	s.recomputeDerivedStatusLocked()
 }
 
 func (s *AppState) SetLock(machine, status string) {
@@ -160,6 +176,9 @@ func (s *AppState) TrayColor() string {
 
 func (s *AppState) recomputeDerivedStatusLocked() {
 	switch {
+	case s.criticalError != "":
+		s.trayColor = "red"
+		s.statusText = s.criticalError
 	case s.syncInProgress:
 		s.trayColor = "red"
 		s.statusText = "Syncing..."

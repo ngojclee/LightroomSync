@@ -44,6 +44,7 @@ export interface ConfigSnapshot {
   max_catalog_backups?: number;
   preset_sync_enabled?: boolean;
   preset_categories?: string[];
+  last_synced_timestamp?: string;
 }
 
 export interface BackupInfo {

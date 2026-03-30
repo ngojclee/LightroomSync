@@ -10,7 +10,7 @@ import type {
   SubscribeLogsResult
 } from "./types";
 
-type TabKey = "status" | "settings" | "backups" | "logs" | "update" | "about";
+type TabKey = "status" | "settings" | "backups" | "logs" | "update" | "about" | "onboarding";
 type BannerKind = "error" | "info" | "success";
 
 interface InvokeOptions {
@@ -46,6 +46,9 @@ interface Refs {
   connectionBadge: HTMLSpanElement;
   connectionDetail: HTMLSpanElement;
   lastRefresh: HTMLSpanElement;
+  navOnboarding: HTMLButtonElement;
+  btnOnboardPull: HTMLButtonElement;
+  btnOnboardPush: HTMLButtonElement;
   tabButtons: HTMLButtonElement[];
   tabPanels: HTMLDivElement[];
   statusText: HTMLSpanElement;
@@ -311,6 +314,9 @@ class FrontendShell {
       connectionBadge: byId<HTMLSpanElement>("connection-badge"),
       connectionDetail: byId<HTMLSpanElement>("connection-detail"),
       lastRefresh: byId<HTMLSpanElement>("last-refresh"),
+      navOnboarding: byId<HTMLButtonElement>("nav-onboarding"),
+      btnOnboardPull: byId<HTMLButtonElement>("btn-onboard-pull"),
+      btnOnboardPush: byId<HTMLButtonElement>("btn-onboard-push"),
       tabButtons: Array.from(this.root.querySelectorAll<HTMLButtonElement>(".tab-button")),
       tabPanels: Array.from(this.root.querySelectorAll<HTMLDivElement>(".tab-panel")),
       statusText: byId<HTMLSpanElement>("status-text"),
@@ -375,6 +381,34 @@ class FrontendShell {
         this.state.activeTab = tab;
         this.updateTabVisibility();
       });
+    });
+
+    this.refs.btnOnboardPull.addEventListener("click", async () => {
+      this.refs.btnOnboardPull.disabled = true;
+      try {
+        const payload = { ...this.state.config, last_synced_timestamp: "1970-01-01T00:00:00" };
+        await this.invoke("save-config", JSON.stringify(payload));
+        await this.invoke("resume-sync");
+        await this.invoke("sync-now");
+        this.setBanner("success", "Onboarding complete. Started pulling network catalog.");
+        await this.refreshConfig();
+      } finally {
+        this.refs.btnOnboardPull.disabled = false;
+      }
+    });
+
+    this.refs.btnOnboardPush.addEventListener("click", async () => {
+      this.refs.btnOnboardPush.disabled = true;
+      try {
+        const ts = new Date().toISOString().replace('Z', '000');
+        const payload = { ...this.state.config, last_synced_timestamp: ts };
+        await this.invoke("save-config", JSON.stringify(payload));
+        await this.invoke("resume-sync");
+        this.setBanner("success", "Onboarding complete. Local catalog is now marked as Master.");
+        await this.refreshConfig();
+      } finally {
+        this.refs.btnOnboardPush.disabled = false;
+      }
     });
 
     this.refs.btnRefreshStatus.addEventListener("click", () => void this.refreshStatus());
@@ -610,6 +644,22 @@ class FrontendShell {
     ]);
     this.refs.inputPresetCategories.value = this.normalizeCategories(cfg.preset_categories ?? []).join(", ");
     this.renderPresetChecklist();
+
+    if (!cfg.last_synced_timestamp || cfg.last_synced_timestamp.trim() === "") {
+      this.refs.navOnboarding.classList.remove("hidden");
+      // Force user to onboarding if not decided
+      if (this.state.activeTab !== "onboarding") {
+        this.state.activeTab = "onboarding";
+        this.updateTabVisibility();
+      }
+    } else {
+      this.refs.navOnboarding.classList.add("hidden");
+      // Return to status if they were on the onboarding tab
+      if (this.state.activeTab === "onboarding") {
+        this.state.activeTab = "status";
+        this.updateTabVisibility();
+      }
+    }
   }
 
   private renderBackups(): void {

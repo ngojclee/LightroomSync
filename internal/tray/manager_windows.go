@@ -4,13 +4,14 @@ package tray
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
-	"unicode/utf16"
 )
 
 // Options configures tray bootstrap behavior.
@@ -51,10 +52,21 @@ func (m *Manager) Start(_ context.Context) error {
 	}
 
 	script := renderPowerShellTrayScript(m.opts)
-	encoded := encodePowerShellCommand(script)
+
+	// Write script to file — more reliable than -EncodedCommand which can
+	// silently fail due to encoding issues or command line length limits.
+	scriptDir := filepath.Dir(m.opts.StatusPath)
+	if scriptDir == "" || scriptDir == "." {
+		scriptDir = os.TempDir()
+	}
+	_ = os.MkdirAll(scriptDir, 0o755)
+	scriptPath := filepath.Join(scriptDir, "tray-host.ps1")
+	if err := os.WriteFile(scriptPath, []byte(script), 0o644); err != nil {
+		return fmt.Errorf("write tray script: %w", err)
+	}
 
 	var lastErr error
-	for _, shell := range []string{"powershell.exe", "pwsh.exe", "powershell", "pwsh"} {
+	for _, shell := range []string{"powershell.exe", "pwsh.exe"} {
 		cmd := exec.Command(
 			shell,
 			"-Sta",
@@ -62,9 +74,13 @@ func (m *Manager) Start(_ context.Context) error {
 			"-ExecutionPolicy",
 			"Bypass",
 			"-WindowStyle", "Hidden",
-			"-EncodedCommand",
-			encoded,
+			"-File",
+			scriptPath,
 		)
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			HideWindow:    true,
+			CreationFlags: 0x08000000, // CREATE_NO_WINDOW
+		}
 		if err := cmd.Start(); err != nil {
 			lastErr = err
 			continue
@@ -104,16 +120,6 @@ func (m *Manager) Stop() error {
 	err := m.cmd.Process.Kill()
 	m.cmd = nil
 	return err
-}
-
-func encodePowerShellCommand(script string) string {
-	// PowerShell -EncodedCommand expects UTF-16LE bytes.
-	words := utf16.Encode([]rune(script))
-	utf16LE := make([]byte, 0, len(words)*2)
-	for _, w := range words {
-		utf16LE = append(utf16LE, byte(w), byte(w>>8))
-	}
-	return base64.StdEncoding.EncodeToString(utf16LE)
 }
 
 func psSingleQuote(value string) string {
@@ -255,18 +261,21 @@ $notify.Add_DoubleClick({
 function Get-BadgedIcon {
     param([System.Drawing.Icon]$BaseIcon, [string]$HtmlColor)
     try {
-        $bmp = New-Object System.Drawing.Bitmap 16, 16
+        $bmp = New-Object System.Drawing.Bitmap 16,16
         $g = [System.Drawing.Graphics]::FromImage($bmp)
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-        $g.DrawIcon($BaseIcon, New-Object System.Drawing.Rectangle(0, 0, 16, 16))
+        $rect = [System.Drawing.Rectangle]::new(0,0,16,16)
+        $g.DrawIcon($BaseIcon, $rect)
         
         $color = [System.Drawing.ColorTranslator]::FromHtml($HtmlColor)
-        $brush = New-Object System.Drawing.SolidBrush($color)
-        $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
+        $brush = [System.Drawing.SolidBrush]::new($color)
+        $pen = [System.Drawing.Pen]::new([System.Drawing.Color]::Black, 1)
         
         $g.FillEllipse($brush, 9, 9, 6, 6)
         $g.DrawEllipse($pen, 9, 9, 6, 6)
         
+        $brush.Dispose()
+        $pen.Dispose()
         $g.Dispose()
         $ptr = $bmp.GetHicon()
         return [System.Drawing.Icon]::FromHandle($ptr)

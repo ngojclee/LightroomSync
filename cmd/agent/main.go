@@ -121,6 +121,13 @@ func main() {
 
 	// --- Start single-flight sync worker ---
 	syncWorker := coordinator.NewSyncWorker(16, appState, eventBus)
+
+	if cfg.LastSyncedTimestamp == "" {
+		log.Println("[INFO] First launch detected (last_synced_timestamp empty). Auto-pausing sync for onboarding.")
+		syncWorker.Pause()
+		appState.SetWarning("Vui lòng cấu hình lần đầu (Onboarding)")
+	}
+
 	watchdog := coordinator.NewWatchdog(250*time.Millisecond, func(alert coordinator.WatchdogAlert) {
 		log.Printf("[WARN] operation timeout op_id=%s name=%s started_at=%s deadline=%s",
 			alert.OperationID, alert.OperationName, alert.StartedAt.Format(time.RFC3339), alert.DeadlineAt.Format(time.RFC3339))

@@ -78,21 +78,58 @@ func (m *ManifestManager) ReadManifest(ctx context.Context) (*Manifest, error) {
 	}, nil
 }
 
-// WriteManifest writes the manifest to disk.
+// WriteManifest writes the manifest to disk safely using a .manifest_lock file.
 // Writer always uses "zip_file" key for backward compatibility with Python.
 func (m *ManifestManager) WriteManifest(ctx context.Context, manifest Manifest) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
 
-	data, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal manifest: %w", err)
-	}
-
 	dir := filepath.Dir(m.ManifestPath())
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("create manifest dir: %w", err)
+	}
+
+	lockPath := filepath.Join(dir, ".manifest_lock")
+
+	timeout := time.After(10 * time.Second)
+	ticker := time.NewTicker(500 * time.Millisecond)
+	defer ticker.Stop()
+
+	locked := false
+	for !locked {
+		file, err := os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o666)
+		if err == nil {
+			file.Close()
+			locked = true
+			break
+		}
+		if !os.IsExist(err) {
+			return fmt.Errorf("create manifest lock: %w", err)
+		}
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timeout:
+			// Assume stale lock if someone crashed, remove and try to acquire once more
+			os.Remove(lockPath)
+			file, err = os.OpenFile(lockPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o666)
+			if err == nil {
+				file.Close()
+				locked = true
+			} else {
+				return fmt.Errorf("force acquire manifest lock timeout: %w", err)
+			}
+		case <-ticker.C:
+			// wait and retry
+		}
+	}
+	defer os.Remove(lockPath)
+
+	data, err := json.MarshalIndent(manifest, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal manifest: %w", err)
 	}
 
 	return os.WriteFile(m.ManifestPath(), data, 0o644)

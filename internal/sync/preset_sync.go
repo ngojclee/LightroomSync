@@ -225,6 +225,14 @@ func (m *PresetSyncManager) Sync(ctx context.Context) (PresetSyncSummary, error)
 
 	var cycleErr error
 
+	tombstonePath := filepath.Join(networkDir, ".sync_deleted.json")
+	tombstone, tombErr := readPresetState(tombstonePath)
+	if tombErr != nil {
+		m.logf("[WARN] failed to read tombstone state, continuing with empty: %v", tombErr)
+		tombstone = map[string]float64{}
+	}
+	tombstoneModified := false
+
 	// PULL A: apply network-side deletions.
 	toRemove := make([]string, 0, len(state))
 	for relPath, lastMTime := range state {
@@ -245,7 +253,7 @@ func (m *PresetSyncManager) Sync(ctx context.Context) (PresetSyncSummary, error)
 					summary.Deleted++
 				}
 			}
-		} else if statErr != nil && !os.IsNotExist(statErr) {
+		} else if !os.IsNotExist(statErr) {
 			cycleErr = firstError(cycleErr, fmt.Errorf("stat local preset %s: %w", relPath, statErr))
 		}
 		toRemove = append(toRemove, relPath)
@@ -332,8 +340,10 @@ func (m *PresetSyncManager) Sync(ctx context.Context) (PresetSyncSummary, error)
 				cycleErr = firstError(cycleErr, fmt.Errorf("delete network preset %s: %w", relPath, err))
 			} else if err == nil {
 				summary.Deleted++
+				tombstone[relPath] = fileModSeconds(time.Now())
+				tombstoneModified = true
 			}
-		} else if statErr != nil && !os.IsNotExist(statErr) {
+		} else if !os.IsNotExist(statErr) {
 			cycleErr = firstError(cycleErr, fmt.Errorf("stat network preset %s: %w", relPath, statErr))
 		}
 
@@ -373,6 +383,21 @@ func (m *PresetSyncManager) Sync(ctx context.Context) (PresetSyncSummary, error)
 			continue
 		}
 
+		if deleteMTime, exists := tombstone[relPath]; exists {
+			if localMTime <= deleteMTime+toleranceSec {
+				m.logf("[INFO] preventing zombie push for %s (mtime %v <= tombstone %v)", relPath, localMTime, deleteMTime)
+				localPath := filepath.Join(m.localRoot, filepath.FromSlash(relPath))
+				if err := os.Remove(localPath); err != nil && !os.IsNotExist(err) {
+					cycleErr = firstError(cycleErr, fmt.Errorf("delete zombie local preset %s: %w", relPath, err))
+				} else {
+					summary.Deleted++
+				}
+				continue
+			}
+			delete(tombstone, relPath)
+			tombstoneModified = true
+		}
+
 		if err := os.MkdirAll(filepath.Dir(networkPath), 0o755); err != nil {
 			cycleErr = firstError(cycleErr, fmt.Errorf("create network preset directory for %s: %w", relPath, err))
 			continue
@@ -407,6 +432,11 @@ func (m *PresetSyncManager) Sync(ctx context.Context) (PresetSyncSummary, error)
 	if err := writePresetState(m.statePath, newState); err != nil {
 		return summary, err
 	}
+	if tombstoneModified {
+		if err := writePresetState(tombstonePath, tombstone); err != nil {
+			m.logf("[WARN] failed to write tombstone state: %v", err)
+		}
+	}
 	summary.Tracked = len(newState)
 
 	return summary, nil
@@ -426,7 +456,7 @@ func (m *PresetSyncManager) pullWatermark(networkPath, localPath, networkPresetD
 	}
 
 	content := string(contentRaw)
-	networkLogosDir := filepath.Join(networkPresetDir, presetLogoFolderName)
+	networkLogosDir := filepath.Join(networkPresetDir, "Watermarks", presetLogoFolderName)
 	localLogosDir := filepath.Join(m.localRoot, "Watermarks", presetLogoFolderName)
 	logosCopied := 0
 	var rewriteErr error
@@ -502,7 +532,7 @@ func (m *PresetSyncManager) pushWatermark(localPath, networkPath, networkPresetD
 	originalMTime := localInfo.ModTime().UTC()
 
 	content := string(contentRaw)
-	networkLogosDir := filepath.Join(networkPresetDir, presetLogoFolderName)
+	networkLogosDir := filepath.Join(networkPresetDir, "Watermarks", presetLogoFolderName)
 	if err := os.MkdirAll(networkLogosDir, 0o755); err != nil {
 		return 0, err
 	}
@@ -592,6 +622,9 @@ func scanPresetFiles(ctx context.Context, root string, categories []string, skip
 				return err
 			}
 			if d.IsDir() {
+				if d.Name() == presetLogoFolderName {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 			if err := ctx.Err(); err != nil {
@@ -720,10 +753,11 @@ func copyIfSizeDiff(srcPath, dstPath string) (bool, error) {
 	}
 
 	dstInfo, err := os.Stat(dstPath)
-	if err == nil && dstInfo.Size() == srcInfo.Size() {
-		return false, nil
-	}
-	if err != nil && !os.IsNotExist(err) {
+	if err == nil {
+		if dstInfo.Size() == srcInfo.Size() && !dstInfo.ModTime().Before(srcInfo.ModTime()) {
+			return false, nil
+		}
+	} else if !os.IsNotExist(err) {
 		return false, err
 	}
 

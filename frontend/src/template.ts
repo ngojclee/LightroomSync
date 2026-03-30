@@ -10,6 +10,10 @@ export const appTemplate = `
       <span class="material-symbols-outlined" data-icon="analytics">analytics</span>
       <span class="text-sm font-semibold">Status</span>
     </button>
+    <button id="nav-onboarding" class="tab-button w-full flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98] hidden" data-tab="onboarding">
+      <span class="material-symbols-outlined text-[#7B2CBF]" data-icon="explore">explore</span>
+      <span class="text-sm font-bold text-[#deb7ff]">Onboarding</span>
+    </button>
     <button class="tab-button w-full flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98]" data-tab="settings">
       <span class="material-symbols-outlined" data-icon="settings">settings</span>
       <span class="text-sm">Settings</span>
@@ -143,6 +147,57 @@ export const appTemplate = `
         </div>
       </div>
     </div>
+  </div>
+
+  <!-- Onboarding Panel -->
+  <div id="panel-onboarding" class="tab-panel is-hidden hidden">
+      <header class="mb-8">
+        <h2 class="text-3xl font-extrabold font-headline tracking-tight text-primary mb-2">Welcome to LightroomSync</h2>
+        <p class="text-on-surface-variant text-sm max-w-2xl text-balance">
+          It looks like this is the first time you are connecting this machine. To prevent data loss or catalog conflicts, please choose how you want to initialize the synchronization.
+        </p>
+      </header>
+      
+      <div class="glass-panel p-6 rounded-2xl mb-8 space-y-4 shadow-md bg-surface-container-low/50">
+        <h3 class="text-xl font-bold text-on-surface">Step 1: Merge catalogs cleanly</h3>
+        <p class="text-on-surface-variant text-sm">
+          If you have photos on this machine that are NOT on your main network catalog yet, you must manually merge them first:
+        </p>
+        <ul class="list-disc pl-5 text-sm text-on-surface-variant space-y-1">
+          <li>Select the new folders/collections in Lightroom.</li>
+          <li>Click File -> <strong class="text-on-surface">Export as Catalog</strong> and save it to a safe backup folder.</li>
+          <li>After choosing to "Pull from Network", open that network catalog.</li>
+          <li>Click File -> <strong class="text-on-surface">Import from Another Catalog</strong> and select the exported catalog.</li>
+        </ul>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-panel p-8 rounded-2xl flex flex-col items-start border-l-4 border-primary bg-surface-container-lowest/80 transition-transform hover:-translate-y-1 hover:shadow-xl">
+          <div class="p-3 bg-primary/10 rounded-full mb-4">
+            <span class="material-symbols-outlined text-primary text-3xl">download</span>
+          </div>
+          <h3 class="text-xl font-bold font-headline mb-2 text-on-surface">Pull from Network</h3>
+          <p class="text-sm text-on-surface-variant mb-6 flex-1">
+            Overwrite your local catalog with the latest version from the network. Ideal if this machine is new or outdated.
+          </p>
+          <button id="btn-onboard-pull" class="w-full bg-gradient-to-br from-primary-container to-primary text-on-primary font-bold py-3 px-4 rounded-xl shadow-[0_0_15px_rgba(123,44,191,0.3)] hover:scale-[1.02] transition-transform flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-sm">download</span> Pull & Replace Local
+          </button>
+        </div>
+
+        <div class="glass-panel p-8 rounded-2xl flex flex-col items-start border-l-4 border-secondary-fixed bg-surface-container-lowest/80 transition-transform hover:-translate-y-1 hover:shadow-xl">
+          <div class="p-3 bg-secondary-fixed/10 rounded-full mb-4">
+            <span class="material-symbols-outlined text-secondary-fixed text-3xl">upload</span>
+          </div>
+          <h3 class="text-xl font-bold font-headline mb-2 text-on-surface">Push Local as Master</h3>
+          <p class="text-sm text-on-surface-variant mb-6 flex-1">
+            Force your current local catalog to overwrite the network backup. Only do this if you are absolutely sure this machine has the best version.
+          </p>
+          <button id="btn-onboard-push" class="w-full bg-surface-container-high border border-secondary-fixed/50 hover:bg-secondary-fixed/20 hover:border-secondary-fixed text-secondary-fixed font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+            <span class="material-symbols-outlined text-sm">upload</span> Push & Overwrite Network
+          </button>
+        </div>
+      </div>
   </div>
 
   <!-- Settings Panel -->

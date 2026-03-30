@@ -185,7 +185,7 @@ func TestPresetSync_WatermarkPushRewritesTemplateAndCopiesLogo(t *testing.T) {
 		t.Fatalf("expected logo copy, got %+v", summary)
 	}
 
-	networkLogo := filepath.Join(backupDir, "Presets", "Logos", "brand.png")
+	networkLogo := filepath.Join(backupDir, "Presets", "Watermarks", "Logos", "brand.png")
 	if _, err := os.Stat(networkLogo); err != nil {
 		t.Fatalf("network logo missing: %v", err)
 	}
@@ -209,7 +209,7 @@ func TestPresetSync_WatermarkPullRewritesToLocalLogoPath(t *testing.T) {
 	backupDir := filepath.Join(root, "network")
 	statePath := filepath.Join(localRoot, ".lightroom-sync", "preset_state.json")
 
-	networkLogo := filepath.Join(backupDir, "Presets", "Logos", "remote.png")
+	networkLogo := filepath.Join(backupDir, "Presets", "Watermarks", "Logos", "remote.png")
 	networkTemplate := filepath.Join(backupDir, "Presets", "Watermarks", "Remote.lrsmv")
 	mustWriteFile(t, networkLogo, []byte("remote-logo"))
 	mustWriteFile(t, networkTemplate, []byte(`imagePath = "`+escapeTemplatePathForTest(networkLogo)+`"`))

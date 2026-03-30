@@ -354,3 +354,34 @@ The Agent runs locally in the background and is controlled via IPC connections f
 - [x] **Auto-launch Agent from UI**: `bootstrap()` in `App.ts` now automatically calls `launchAgent()` when Agent is unreachable — user opens ONE app and everything starts.
 - [x] **Installer cleanup**: Removed redundant "Start with Windows" task from install wizard (only "Desktop shortcut" remains). Auto-start registry is always set on install (user can toggle from Settings). Post-install shows single "Launch Lightroom Sync" checkbox.
 - [x] **Build + Release v2.0.1.0**: Pushed to GitHub main, published on `win-toolbox`.
+
+## Session 2026-03-30 (v2.0.2.0 — tray script fix + docs)
+- [x] **Fix PowerShell tray script crash**: Root cause was `New-Object System.Drawing.Rectangle(0, 0, 16, 16)` — invalid PowerShell constructor syntax in `Get-BadgedIcon`. Fixed to `[Type]::new(args)` .NET syntax.
+- [x] **Switch script delivery**: Changed from `-EncodedCommand` (base64 inline) to writing `.ps1` file + `-File` launch — more reliable and debuggable.
+- [x] **Hide PowerShell window**: Added `SysProcAttr{HideWindow: true, CREATE_NO_WINDOW}` to prevent any console flash.
+- [x] **Fix version mismatch**: Updated `frontend/package.json` + `template.ts` hardcoded versions from `0.1.0`/`2.0.0.0` to `2.0.1.0`.
+- [x] **Tray icon confirmed working** by user.
+- [x] **Create `.docs/sync-architecture.md`**: Full architecture doc with catalog sync, preset sync, watermark logo, vulnerability analysis.
+- [x] **Create `README.md`**: Professional GitHub README.
+- [x] **Fix Failing Tests**: Updated watermark sync paths in unit tests to match new `Presets/Watermarks/Logos/` standard.
+
+## Phase 11: Multi-Machine Sync Hardening
+
+### 11.1 Watermark Logo Sync Optimization
+- [x] **Network Path Unification**: Change network path from `Presets/Logos/` to `Presets/Watermarks/Logos/` to align with local structure (Option A).
+- [x] **Conflict Avoidance (SkipDir)**: Add logic in `scanPresetFiles` to ignore any subdirectories named `Logos` to prevent normal sync loops from duplicating logo tracks.
+- [x] **MTime + Size Tracking**: Modify logo sync (`copyIfSizeDiff` or equivalent) to check `Modification Time` additionally, ensuring newer logos overwrite older ones on PULL even if sizes match.
+
+### 11.2 Preset Tombstone Mechanism
+- [x] **Deleted Presets Manifest**: Create `sync_deleted.json` (tombstone array) on the network.
+- [x] **Deletion Tracking**: When pushing a local deletion, append the filename and timestamp to the tombstone file.
+- [x] **Resurrection Prevention**: During PUSH, if a local file exists but its `mtime` is older than the tombstone's deletion time, delete it locally instead of pushing it back.
+
+### 11.3 Catalog Manifest Lock & Notifications
+- [x] **Manifest Lock File**: Create a temporary file `.manifest_lock` before writing `sync_manifest.json` to prevent concurrent write corruption from other machines. Wait/retry if lock exists, timeout after 10s.
+- [x] **Corruption Notifications**: If `ValidateZipIntegrity` fails (corrupted zip), trigger a Red notification in Wails UI/Tray instead of silently skipping.
+
+### 11.4 First Launch Onboarding UX
+- [x] **Default State PAUSE**: Automatically set sync to paused if `last_synced_timestamp` is completely empty (first run).
+- [x] **Onboarding Guide Tab**: Add a setup wizard or guide tab explaining how to merge catalogs safely (Export/Import as Catalog).
+- [x] **Interactive Choice**: Give users distinct buttons: "Pull from Network (Overwrite Local)" or "Push Local as Master (Overwrite Network)".
