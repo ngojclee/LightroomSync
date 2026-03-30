@@ -127,7 +127,7 @@ func renderPowerShellTrayScript(opts Options) string {
 	statusPath := psSingleQuote(opts.StatusPath)
 
 	return fmt.Sprintf(`
-$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'SilentlyContinue'
 
 $AppName = '%s'
 $AgentPid = %d
@@ -199,8 +199,6 @@ if ($null -eq $resolvedIcon) {
     $resolvedIcon = [System.Drawing.SystemIcons]::Application
     Write-TrayLog 'using fallback system icon'
 }
-
-$ErrorActionPreference = 'SilentlyContinue'
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Text = $AppName

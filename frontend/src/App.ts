@@ -1058,10 +1058,29 @@ class FrontendShell {
   private async bootstrap(): Promise<void> {
     await this.refreshStatus({ quietError: true, silent: true });
     await this.refreshConfig({ quietError: true, silent: true });
+
+    // Auto-launch agent if not connected — user should only need to open one app
+    if (this.shouldShowDisconnectedState()) {
+      try {
+        const result = await launchAgent();
+        if (result.ok === "true") {
+          // Give agent a moment to start IPC listener
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          this.state.disconnectFailCount = 0;
+          // Re-fetch everything after agent starts
+          await this.refreshStatus({ quietError: true, silent: true });
+          await this.refreshConfig({ quietError: true, silent: true });
+        }
+      } catch {
+        // Fall through to show overlay if auto-launch fails
+      }
+    }
+
     await this.refreshBackups({ quietError: true, silent: true });
     await this.refreshLogs(true, { quietError: true, silent: true });
     await this.refreshUpdate({ quietError: true, silent: true });
 
+    // Only show manual overlay if auto-launch also failed
     if (this.shouldShowDisconnectedState()) {
       this.showAgentOverlay();
     }
