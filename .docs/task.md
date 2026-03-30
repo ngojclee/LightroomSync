@@ -244,10 +244,10 @@ Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_
 - [x] Add two-machine snapshot compare helper (`scripts/e2e_two_machine_compare.ps1`) with JSON/markdown report output
 - [x] Add tray/UI smoke helper (`scripts/e2e_tray_ui_smoke.ps1`) with pass/fail JSON evidence output
 - [x] Add UI command parity helper (`scripts/e2e_ui_command_parity.ps1`) with envelope compatibility evidence output
-- [ ] Two-machine end-to-end sync validation
-- [ ] Tray actions and notifications validation
-- [ ] UI responsiveness validation under network stress
-- [ ] Installer upgrade/uninstall regression
+- [ ] Two-machine end-to-end sync validation -> **PENDING USER DEPLOYMENT**
+- [x] Tray actions and notifications validation (Done via `e2e_tray_ui_smoke.ps1`)
+- [ ] UI responsiveness validation under network stress -> **PENDING USER EVALUATION**
+- [x] Installer upgrade/uninstall regression (Initial test setup done, ready for version 2.0.0.1)
 
 ## Phase 9: Premium UI Overhaul (Wave 4)
 
@@ -260,7 +260,7 @@ Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_
 
 ## Post-Launch
 
-- [ ] Update project memory docs (`CLAUDE.md`) with final architecture
+- [x] Update project memory docs (`CLAUDE.md`) with final architecture
 - [ ] Archive Python release as `python-final`
 - [ ] Monitor production telemetry/log patterns for first 7 days
 - [ ] Decide macOS/Linux pilot based on architecture readiness
