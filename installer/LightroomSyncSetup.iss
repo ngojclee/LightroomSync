@@ -65,8 +65,7 @@ Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; Working
 Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Tasks: startupagent; Flags: uninsdeletevalue
 
 [Run]
-Filename: "{app}\LightroomSyncAgent.exe"; Parameters: "--minimized"; Description: "Start Lightroom Sync Agent"; Flags: nowait postinstall skipifsilent runasoriginaluser
-Filename: "{app}\{#UIBinaryName}"; Description: "Open Lightroom Sync"; Flags: nowait postinstall skipifsilent unchecked runasoriginaluser
+Filename: "{app}\{#UIBinaryName}"; Description: "Launch Lightroom Sync"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [Code]
 function TryStopProcess(const ImageName: string; const ForceKill: Boolean): Boolean;
