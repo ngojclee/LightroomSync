@@ -31,7 +31,7 @@ type actionEnvelope struct {
 }
 
 func main() {
-	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync|subscribe-logs)")
+	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync|subscribe-logs|check-update|download-update)")
 	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
 	flag.Parse()
@@ -102,6 +102,10 @@ func runAction(action, payload, pipeName string) actionEnvelope {
 		return actionResumeSync(pipeName)
 	case "subscribe-logs":
 		return actionSubscribeLogs(pipeName, payload)
+	case "check-update":
+		return actionCheckUpdate(pipeName)
+	case "download-update":
+		return actionDownloadUpdate(pipeName, payload)
 	default:
 		return actionEnvelope{
 			OK:      false,
@@ -278,6 +282,73 @@ func actionSubscribeLogs(pipeName, payload string) actionEnvelope {
 		}
 	}
 
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionCheckUpdate(pipeName string) actionEnvelope {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdCheckUpdate})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionDownloadUpdate(pipeName, payload string) actionEnvelope {
+	body := ipc.DownloadUpdatePayload{}
+	payload = strings.TrimSpace(payload)
+	if payload != "" {
+		if err := json.Unmarshal([]byte(payload), &body); err != nil {
+			return actionEnvelope{
+				OK:      false,
+				Success: false,
+				Code:    ipc.CodeBadRequest,
+				Error:   fmt.Sprintf("invalid payload JSON: %v", err),
+				Server:  time.Now().Format(time.RFC3339),
+			}
+		}
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{
+		Command: ipc.CmdDownloadUpdate,
+		Payload: body,
+	})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
 	return actionEnvelope{
 		OK:      true,
 		ID:      resp.ID,
@@ -468,6 +539,7 @@ func launchWindowsHarness(pipeName string) error {
 func windowsHarnessScript(exePath, pipeName string) string {
 	escapedExe := strings.ReplaceAll(exePath, "'", "''")
 	escapedPipe := strings.ReplaceAll(pipeName, "'", "''")
+	escapedVersion := strings.ReplaceAll(Version, "'", "''")
 
 	return fmt.Sprintf(`
 $ErrorActionPreference = 'Stop'
@@ -477,6 +549,7 @@ Add-Type -AssemblyName System.Drawing
 
 $exe = '%s'
 $pipe = '%s'
+$currentVersion = '%s'
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = '%s'
@@ -609,6 +682,56 @@ $lblTrayValue.AutoSize = $true
 $lblTrayValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
 $lblTrayValue.Location = New-Object System.Drawing.Point(130, 180)
 $form.Controls.Add($lblTrayValue)
+
+$lblCurrentVersionTitle = New-Object System.Windows.Forms.Label
+$lblCurrentVersionTitle.Text = 'Current Version:'
+$lblCurrentVersionTitle.AutoSize = $true
+$lblCurrentVersionTitle.Location = New-Object System.Drawing.Point(22, 206)
+$form.Controls.Add($lblCurrentVersionTitle)
+
+$lblCurrentVersionValue = New-Object System.Windows.Forms.Label
+$lblCurrentVersionValue.Text = $currentVersion
+$lblCurrentVersionValue.AutoSize = $true
+$lblCurrentVersionValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$lblCurrentVersionValue.Location = New-Object System.Drawing.Point(130, 206)
+$form.Controls.Add($lblCurrentVersionValue)
+
+$lblLatestVersionTitle = New-Object System.Windows.Forms.Label
+$lblLatestVersionTitle.Text = 'Latest Version:'
+$lblLatestVersionTitle.AutoSize = $true
+$lblLatestVersionTitle.Location = New-Object System.Drawing.Point(22, 228)
+$form.Controls.Add($lblLatestVersionTitle)
+
+$lblLatestVersionValue = New-Object System.Windows.Forms.Label
+$lblLatestVersionValue.Text = '-'
+$lblLatestVersionValue.AutoSize = $true
+$lblLatestVersionValue.Font = New-Object System.Drawing.Font('Segoe UI', 9, [System.Drawing.FontStyle]::Bold)
+$lblLatestVersionValue.Location = New-Object System.Drawing.Point(130, 228)
+$form.Controls.Add($lblLatestVersionValue)
+
+$btnCheckUpdate = New-Object System.Windows.Forms.Button
+$btnCheckUpdate.Text = 'Check Update'
+$btnCheckUpdate.Width = 120
+$btnCheckUpdate.Height = 28
+$btnCheckUpdate.Location = New-Object System.Drawing.Point(22, 252)
+$form.Controls.Add($btnCheckUpdate)
+
+$btnDownloadUpdate = New-Object System.Windows.Forms.Button
+$btnDownloadUpdate.Text = 'Download Update'
+$btnDownloadUpdate.Width = 130
+$btnDownloadUpdate.Height = 28
+$btnDownloadUpdate.Location = New-Object System.Drawing.Point(148, 252)
+$btnDownloadUpdate.Enabled = $false
+$form.Controls.Add($btnDownloadUpdate)
+
+$txtReleaseNotes = New-Object System.Windows.Forms.TextBox
+$txtReleaseNotes.Multiline = $true
+$txtReleaseNotes.ReadOnly = $true
+$txtReleaseNotes.ScrollBars = 'Vertical'
+$txtReleaseNotes.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
+$txtReleaseNotes.Location = New-Object System.Drawing.Point(22, 282)
+$txtReleaseNotes.Size = New-Object System.Drawing.Size(440, 42)
+$form.Controls.Add($txtReleaseNotes)
 
 $lblBackupRootTitle = New-Object System.Windows.Forms.Label
 $lblBackupRootTitle.Text = 'Backup Folder:'
@@ -745,14 +868,14 @@ $form.Controls.Add($btnSyncSelected)
 
 $lstBackups = New-Object System.Windows.Forms.ListBox
 $lstBackups.Font = New-Object System.Drawing.Font('Consolas', 8.5)
-$lstBackups.Location = New-Object System.Drawing.Point(22, 292)
-$lstBackups.Size = New-Object System.Drawing.Size(440, 352)
+$lstBackups.Location = New-Object System.Drawing.Point(22, 332)
+$lstBackups.Size = New-Object System.Drawing.Size(440, 312)
 $form.Controls.Add($lstBackups)
 
 $lblOutputTitle = New-Object System.Windows.Forms.Label
 $lblOutputTitle.Text = 'Action Output'
 $lblOutputTitle.AutoSize = $true
-$lblOutputTitle.Location = New-Object System.Drawing.Point(474, 292)
+$lblOutputTitle.Location = New-Object System.Drawing.Point(474, 332)
 $form.Controls.Add($lblOutputTitle)
 
 $txtOutput = New-Object System.Windows.Forms.TextBox
@@ -760,20 +883,20 @@ $txtOutput.Multiline = $true
 $txtOutput.ReadOnly = $true
 $txtOutput.ScrollBars = 'Vertical'
 $txtOutput.Font = New-Object System.Drawing.Font('Consolas', 9)
-$txtOutput.Location = New-Object System.Drawing.Point(474, 310)
+$txtOutput.Location = New-Object System.Drawing.Point(474, 350)
 $txtOutput.Size = New-Object System.Drawing.Size(488, 110)
 $form.Controls.Add($txtOutput)
 
 $lblLogsTitle = New-Object System.Windows.Forms.Label
 $lblLogsTitle.Text = 'Agent Logs (subscribe_logs)'
 $lblLogsTitle.AutoSize = $true
-$lblLogsTitle.Location = New-Object System.Drawing.Point(474, 428)
+$lblLogsTitle.Location = New-Object System.Drawing.Point(474, 468)
 $form.Controls.Add($lblLogsTitle)
 
 $lblLogLevel = New-Object System.Windows.Forms.Label
 $lblLogLevel.Text = 'Level:'
 $lblLogLevel.AutoSize = $true
-$lblLogLevel.Location = New-Object System.Drawing.Point(760, 428)
+$lblLogLevel.Location = New-Object System.Drawing.Point(760, 468)
 $form.Controls.Add($lblLogLevel)
 
 $cmbLogLevel = New-Object System.Windows.Forms.ComboBox
@@ -784,7 +907,7 @@ $cmbLogLevel.DropDownStyle = 'DropDownList'
 [void]$cmbLogLevel.Items.Add('ERROR')
 [void]$cmbLogLevel.Items.Add('DEBUG')
 $cmbLogLevel.SelectedIndex = 0
-$cmbLogLevel.Location = New-Object System.Drawing.Point(805, 424)
+$cmbLogLevel.Location = New-Object System.Drawing.Point(805, 464)
 $cmbLogLevel.Width = 90
 $form.Controls.Add($cmbLogLevel)
 
@@ -792,7 +915,7 @@ $btnClearLogs = New-Object System.Windows.Forms.Button
 $btnClearLogs.Text = 'Clear'
 $btnClearLogs.Width = 60
 $btnClearLogs.Height = 26
-$btnClearLogs.Location = New-Object System.Drawing.Point(902, 422)
+$btnClearLogs.Location = New-Object System.Drawing.Point(902, 462)
 $form.Controls.Add($btnClearLogs)
 
 $txtLogs = New-Object System.Windows.Forms.TextBox
@@ -800,11 +923,13 @@ $txtLogs.Multiline = $true
 $txtLogs.ReadOnly = $true
 $txtLogs.ScrollBars = 'Vertical'
 $txtLogs.Font = New-Object System.Drawing.Font('Consolas', 8.8)
-$txtLogs.Location = New-Object System.Drawing.Point(474, 446)
-$txtLogs.Size = New-Object System.Drawing.Size(488, 198)
+$txtLogs.Location = New-Object System.Drawing.Point(474, 486)
+$txtLogs.Size = New-Object System.Drawing.Size(488, 158)
 $form.Controls.Add($txtLogs)
 
 $script:lastLogID = 0
+$script:updateAssetURL = ''
+$script:updateAssetName = ''
 
 function Set-Reachability([bool]$ok) {
     if ($ok) {
@@ -953,6 +1078,33 @@ function Invoke-Action([string]$action, [string]$payload = '', [bool]$renderRaw 
                     $btnPauseSync.Enabled = -not $paused
                     $btnResumeSync.Enabled = $paused
                 }
+                if ($null -ne $obj.data.current_version) {
+                    $lblCurrentVersionValue.Text = [string]$obj.data.current_version
+                }
+                if ($null -ne $obj.data.latest_version) {
+                    $lblLatestVersionValue.Text = [string]$obj.data.latest_version
+                }
+                if ($null -ne $obj.data.release_notes) {
+                    $txtReleaseNotes.Text = [string]$obj.data.release_notes
+                }
+                if ($null -ne $obj.data.asset_url) {
+                    $script:updateAssetURL = [string]$obj.data.asset_url
+                }
+                if ($null -ne $obj.data.asset_name) {
+                    $script:updateAssetName = [string]$obj.data.asset_name
+                }
+                if ($null -ne $obj.data.has_update) {
+                    $hasUpdate = [bool]$obj.data.has_update
+                    $canDownload = $hasUpdate -and (-not [string]::IsNullOrWhiteSpace($script:updateAssetURL))
+                    if ($null -ne $obj.data.download_in_progress) {
+                        $inProgress = [bool]$obj.data.download_in_progress
+                        $btnDownloadUpdate.Enabled = $canDownload -and (-not $inProgress)
+                    } else {
+                        $btnDownloadUpdate.Enabled = $canDownload
+                    }
+                } elseif ($null -ne $obj.data.download_in_progress) {
+                    $btnDownloadUpdate.Enabled = (-not [bool]$obj.data.download_in_progress) -and (-not [string]::IsNullOrWhiteSpace($script:updateAssetURL))
+                }
                 if (
                     $null -ne $obj.data.auto_sync -or
                     $null -ne $obj.data.backup_folder -or
@@ -1034,6 +1186,28 @@ $btnResumeSync.Add_Click({
     Invoke-Action 'resume-sync'
     Start-Sleep -Milliseconds 120
     Invoke-Action 'status'
+    Pull-Logs
+})
+$btnCheckUpdate.Add_Click({
+    Invoke-Action 'check-update'
+    Pull-Logs
+})
+$btnDownloadUpdate.Add_Click({
+    if ([string]::IsNullOrWhiteSpace($script:updateAssetURL)) {
+        [System.Windows.Forms.MessageBox]::Show(
+            'Chưa có asset URL. Hãy bấm Check Update trước.',
+            'Download Update',
+            'OK',
+            'Information'
+        ) | Out-Null
+        return
+    }
+    $payloadObj = @{
+        asset_url = [string]$script:updateAssetURL
+        asset_name = [string]$script:updateAssetName
+    }
+    $payloadJson = $payloadObj | ConvertTo-Json -Compress
+    Invoke-Action 'download-update' $payloadJson
     Pull-Logs
 })
 $btnSaveConfig.Add_Click({
@@ -1124,8 +1298,9 @@ $form.Add_Shown({
     Invoke-Action 'status'
     Invoke-Action 'get-config'
     Invoke-Action 'get-backups'
+    Invoke-Action 'check-update' '' $false
     Pull-Logs
 })
 [void]$form.ShowDialog()
-`, escapedExe, escapedPipe, strings.ReplaceAll(uiHarnessWindowTitle, "'", "''"))
+`, escapedExe, escapedPipe, escapedVersion, strings.ReplaceAll(uiHarnessWindowTitle, "'", "''"))
 }

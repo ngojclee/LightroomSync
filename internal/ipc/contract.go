@@ -132,6 +132,34 @@ type SubscribeLogsResult struct {
 	LastID  int64            `json:"last_id"`
 }
 
+// CheckUpdateResult is the payload returned by CmdCheckUpdate.
+type CheckUpdateResult struct {
+	CurrentVersion     string `json:"current_version"`
+	LatestVersion      string `json:"latest_version"`
+	HasUpdate          bool   `json:"has_update"`
+	ReleaseNotes       string `json:"release_notes,omitempty"`
+	ReleaseURL         string `json:"release_url,omitempty"`
+	PublishedAt        string `json:"published_at,omitempty"`
+	AssetName          string `json:"asset_name,omitempty"`
+	AssetURL           string `json:"asset_url,omitempty"`
+	CheckedAt          string `json:"checked_at,omitempty"`
+	DownloadInProgress bool   `json:"download_in_progress"`
+}
+
+// DownloadUpdatePayload requests update download.
+type DownloadUpdatePayload struct {
+	AssetURL  string `json:"asset_url,omitempty"`
+	AssetName string `json:"asset_name,omitempty"`
+}
+
+// DownloadUpdateResult is the payload returned by CmdDownloadUpdate.
+type DownloadUpdateResult struct {
+	Started            bool   `json:"started"`
+	DownloadInProgress bool   `json:"download_in_progress"`
+	DestinationPath    string `json:"destination_path,omitempty"`
+	Message            string `json:"message,omitempty"`
+}
+
 // SyncBackupPayload is the payload for CmdSyncBackup.
 type SyncBackupPayload struct {
 	ZipPath string `json:"zip_path"`

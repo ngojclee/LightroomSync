@@ -176,9 +176,9 @@
 
 ### 6.4 Update Tab
 
-- [ ] Show current/latest version and release notes
-- [ ] Trigger update flow via Agent
-- [ ] Render progress events
+- [x] Show current/latest version and release notes
+- [x] Trigger update flow via Agent
+- [x] Render progress events
 
 ## Phase 7: Build, Release, and Installer
 

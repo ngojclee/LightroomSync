@@ -24,6 +24,7 @@ import (
 	winplatform "github.com/ngojclee/lightroom-sync/internal/platform/windows"
 	syncpkg "github.com/ngojclee/lightroom-sync/internal/sync"
 	"github.com/ngojclee/lightroom-sync/internal/tray"
+	updatepkg "github.com/ngojclee/lightroom-sync/internal/update"
 )
 
 var Version = "dev"
@@ -91,6 +92,13 @@ func main() {
 	if presetRootErr != nil {
 		log.Printf("[WARN] Preset sync local root unavailable: %v", presetRootErr)
 	}
+	updateChecker := updatepkg.NewChecker(updatepkg.CheckerOptions{
+		Repository: "ngojclee/LightroomSync",
+	})
+	var updateMu sync.Mutex
+	var cachedLatestUpdate ipc.CheckUpdateResult
+	var hasCachedUpdate bool
+	var updateDownloadInProgress bool
 
 	var orchestrator *coordinator.CatalogSyncOrchestrator
 
@@ -569,6 +577,141 @@ func main() {
 				},
 				Code: ipc.CodeOK,
 			}
+		case ipc.CmdCheckUpdate:
+			releaseInfo, err := updateChecker.CheckLatest(reqCtx, Version)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("check_update failed: %v", err),
+					Code:    ipc.CodeInternalError,
+				}
+			}
+
+			updateMu.Lock()
+			result := toIPCUpdateResult(releaseInfo, updateDownloadInProgress)
+			cachedLatestUpdate = result
+			hasCachedUpdate = true
+			updateMu.Unlock()
+
+			return ipc.Response{
+				Success: true,
+				Data:    result,
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdDownloadUpdate:
+			payload, err := decodePayload[ipc.DownloadUpdatePayload](req.Payload)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("invalid download_update payload: %v", err),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+
+			updateMu.Lock()
+			if updateDownloadInProgress {
+				updateMu.Unlock()
+				return ipc.Response{
+					Success: false,
+					Error:   "update download is already in progress",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+
+			assetURL := strings.TrimSpace(payload.AssetURL)
+			assetName := strings.TrimSpace(payload.AssetName)
+			if assetURL == "" && hasCachedUpdate {
+				assetURL = strings.TrimSpace(cachedLatestUpdate.AssetURL)
+				if assetName == "" {
+					assetName = strings.TrimSpace(cachedLatestUpdate.AssetName)
+				}
+			}
+			if assetURL == "" {
+				updateMu.Unlock()
+				return ipc.Response{
+					Success: false,
+					Error:   "asset_url is required (run check_update first or pass payload)",
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			updateDownloadInProgress = true
+			updateMu.Unlock()
+
+			updateDir, err := defaultUpdateDownloadDir()
+			if err != nil {
+				updateMu.Lock()
+				updateDownloadInProgress = false
+				updateMu.Unlock()
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("resolve update directory: %v", err),
+					Code:    ipc.CodeInternalError,
+				}
+			}
+
+			resolvedName := updatepkg.ResolveAssetName(assetURL, assetName)
+			destination := filepath.Join(updateDir, resolvedName)
+
+			go func(url, dest string) {
+				appState.SetWarning("Đang tải bản cập nhật...")
+				log.Printf("[INFO] update download started asset=%s destination=%s", url, dest)
+
+				downloadCtx, cancel := context.WithTimeout(context.Background(), 20*time.Minute)
+				defer cancel()
+
+				lastPercent := -1
+				err := updateChecker.DownloadToFile(downloadCtx, url, dest, func(downloaded, total int64) {
+					if total <= 0 {
+						return
+					}
+					percent := int(float64(downloaded) * 100 / float64(total))
+					if percent != lastPercent && percent%10 == 0 {
+						lastPercent = percent
+						log.Printf("[INFO] update download progress=%d%%", percent)
+					}
+				})
+
+				updateMu.Lock()
+				updateDownloadInProgress = false
+				if hasCachedUpdate {
+					cachedLatestUpdate.DownloadInProgress = false
+				}
+				updateMu.Unlock()
+
+				if err != nil {
+					log.Printf("[ERROR] update download failed: %v", err)
+					appState.SetWarning("Tải cập nhật thất bại")
+					go func() {
+						time.Sleep(4 * time.Second)
+						appState.RefreshDerivedStatus()
+					}()
+					return
+				}
+
+				log.Printf("[INFO] update downloaded destination=%s", dest)
+				appState.SetWarning("Đã tải bản cập nhật thành công")
+				go func() {
+					time.Sleep(4 * time.Second)
+					appState.RefreshDerivedStatus()
+				}()
+			}(assetURL, destination)
+
+			updateMu.Lock()
+			if hasCachedUpdate {
+				cachedLatestUpdate.DownloadInProgress = true
+			}
+			updateMu.Unlock()
+
+			return ipc.Response{
+				Success: true,
+				Data: ipc.DownloadUpdateResult{
+					Started:            true,
+					DownloadInProgress: true,
+					DestinationPath:    destination,
+					Message:            "update download started",
+				},
+				Code: ipc.CodeOK,
+			}
 		case ipc.CmdSyncNow:
 			current := cfgMgr.Get()
 			if strings.TrimSpace(current.BackupFolder) == "" || strings.TrimSpace(current.CatalogPath) == "" {
@@ -959,5 +1102,32 @@ func normalizeLogLevelFilter(raw string) string {
 		return "DEBUG"
 	default:
 		return ""
+	}
+}
+
+func defaultUpdateDownloadDir() (string, error) {
+	localAppData := strings.TrimSpace(os.Getenv("LOCALAPPDATA"))
+	if localAppData == "" {
+		return "", fmt.Errorf("LOCALAPPDATA environment variable is not set")
+	}
+	return filepath.Join(localAppData, "LightroomSync", "updates"), nil
+}
+
+func toIPCUpdateResult(release updatepkg.LatestRelease, downloadInProgress bool) ipc.CheckUpdateResult {
+	notes := strings.TrimSpace(release.ReleaseNotes)
+	if len(notes) > 6000 {
+		notes = notes[:6000] + "\n...(truncated)"
+	}
+	return ipc.CheckUpdateResult{
+		CurrentVersion:     strings.TrimSpace(release.CurrentVersion),
+		LatestVersion:      strings.TrimSpace(release.LatestVersion),
+		HasUpdate:          release.HasUpdate,
+		ReleaseNotes:       notes,
+		ReleaseURL:         strings.TrimSpace(release.ReleaseURL),
+		PublishedAt:        strings.TrimSpace(release.PublishedAt),
+		AssetName:          strings.TrimSpace(release.AssetName),
+		AssetURL:           strings.TrimSpace(release.AssetURL),
+		CheckedAt:          strings.TrimSpace(release.CheckedAt),
+		DownloadInProgress: downloadInProgress,
 	}
 }
