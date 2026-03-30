@@ -49,7 +49,6 @@ AppMutex=LightroomSyncAgent_Mutex
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
-Name: "startupagent"; Description: "Start Lightroom Sync Agent with Windows"; GroupDescription: "Startup"; Flags: checkedonce
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Additional shortcuts"
 
 [Files]
@@ -62,7 +61,7 @@ Name: "{autoprograms}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; Workin
 Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Tasks: startupagent; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\{#UIBinaryName}"; Description: "Launch Lightroom Sync"; Flags: nowait postinstall skipifsilent runasoriginaluser

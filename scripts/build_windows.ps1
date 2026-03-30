@@ -163,7 +163,8 @@ try {
     Build-WailsUI -OutPath $uiPath -Ldflags $ldflags -Root $ProjectRoot
 
     Write-Host "[build] Building Agent..."
-    & go build -trimpath -ldflags $ldflags -o $agentPath ./cmd/agent
+    $agentLdflags = "$ldflags -H windowsgui"
+    & go build -trimpath -ldflags $agentLdflags -o $agentPath ./cmd/agent
     if ($LASTEXITCODE -ne 0) {
         throw "agent build failed"
     }
