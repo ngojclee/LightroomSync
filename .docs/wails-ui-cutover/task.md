@@ -7,6 +7,10 @@
 > Current Focus: Wave 1 (M1) Runtime Bootstrap
 >  
 > Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
+>  
+> Wave 2 spec: [wave2-uiapi-refactor-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
+>  
+> Timeline: [timeline-and-dependencies.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)
 
 ## Readiness
 
@@ -26,6 +30,7 @@
 - [ ] Extract action handlers into `internal/uiapi` reusable package
 - [ ] Add typed adapter layer for frontend bindings
 - [ ] Add unit tests for command mapping + error code parity
+- [ ] Freeze pre-refactor baseline outputs for command parity checks
 - [ ] Verification: JSON output parity for `ping/status/get-config/save-config`
 
 ## M3. Frontend Shell

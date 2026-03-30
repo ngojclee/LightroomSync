@@ -4,6 +4,8 @@
 > - [Plan](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/plan.md)
 > - [Task](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/task.md)
 > - [Wave 1 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
+> - [Wave 2 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
+> - [Timeline](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)
 
 ## Recommended Working Sequence
 
@@ -32,10 +34,12 @@ Expected:
 ```powershell
 .\build\bin\LightroomSyncUI.exe --action status
 .\build\bin\LightroomSyncUI.exe --action get-config
+.\build\bin\LightroomSyncUI.exe --action save-config --payload "{}"
 ```
 
 Expected:
 - Action responses are structurally identical to pre-refactor behavior.
+- Error/code mapping remains stable (`bad_request`, `agent_offline`, `ok`).
 
 ### Wave 3 + Wave 4
 

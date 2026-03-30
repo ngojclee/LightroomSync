@@ -45,6 +45,7 @@
 - Current desktop UI remains a temporary Windows Forms harness embedded in `cmd/ui/main.go`; Wails frontend/runtime cutover is now tracked as a dedicated remaining phase.
 - Wails cutover planning is now expanded with execution waves, file-ownership map, quality gates, and step-by-step command checklist under `.docs/wails-ui-cutover/`.
 - Wave 1 bootstrap planning is now formalized with a dedicated implementation spec (`.docs/wails-ui-cutover/wave1-bootstrap-spec.md`) and local readiness verification (`wails version` confirmed).
+- Wave 2 `internal/uiapi` refactor planning is now formalized with command-parity spec and dependency/timeline map for the full cutover sequence.
 - Agent now has a tray bootstrap module (`internal/tray`) with Windows NotifyIcon host, menu actions (`Open UI`, `Sync Now`, `Exit Agent`), and status label updates via shared status file.
 - Lock manager now tracks internal `session_id` and monotonic `epoch` metadata for heartbeat sequencing while preserving legacy on-disk lock wire format (`STATUS|MACHINE|TIMESTAMP`).
 - Phase 0.2 architecture spike automation is now added via `scripts/phase0_2_architecture_spike.ps1`, with runbook in `.docs/phase0-2-architecture-spike.md` to validate tray bootstrap + UI focus + IPC roundtrip.

@@ -188,6 +188,7 @@
 
 - [x] Expand Wails cutover planning docs (waves, gates, command checklist)
 - [x] Add Wave 1 bootstrap spec + readiness check (`wails version`)
+- [x] Add Wave 2 `internal/uiapi` refactor spec + timeline/dependency map
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
 - [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)

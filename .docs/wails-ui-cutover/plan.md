@@ -15,6 +15,7 @@
 - Backend IPC + business flow đã sẵn sàng; thiếu lớp Wails runtime và frontend thật.
 - `cmd/ui/main.go` đang chứa cả CLI actions lẫn temporary Windows Forms harness nên cần tách để tái sử dụng.
 - `frontend/` hiện chưa có code, nên milestone M3/M4 là phần khối lượng chính.
+- Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
 
 ## Execution Order (6 Waves)
 
@@ -141,3 +142,9 @@ Gate:
 - Wails UI opens consistently from tray on Windows 10/11.
 - All current IPC commands reachable via Wails backend bindings.
 - Existing Phase 8.3 scripts still pass (or have Wails equivalents with same evidence quality).
+
+## Related Planning Docs
+
+- [Wave 1 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
+- [Wave 2 Spec](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave2-uiapi-refactor-spec.md)
+- [Timeline & Dependencies](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/timeline-and-dependencies.md)
