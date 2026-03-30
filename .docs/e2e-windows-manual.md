@@ -80,6 +80,25 @@ Using produced installer:
    - install directory cleaned
    - no orphan Agent process left
 
+Automated helper (recommended before manual spot-check):
+
+```powershell
+pwsh -File scripts/e2e_installer_regression.ps1
+```
+
+Dry-run mode (to verify command flow without touching system state):
+
+```powershell
+pwsh -File scripts/e2e_installer_regression.ps1 -DryRun
+```
+
+Generated reports/logs are written to `build/e2e/`:
+
+- `installer-regression-<TIMESTAMP>.json`
+- `installer-install-<TIMESTAMP>.log`
+- `installer-upgrade-<TIMESTAMP>.log`
+- `installer-uninstall-<TIMESTAMP>.log`
+
 ## 7. Result Logging Template
 
 Record final result in `.docs/task.md` and attach artifact paths:
