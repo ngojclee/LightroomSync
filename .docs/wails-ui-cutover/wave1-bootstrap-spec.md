@@ -63,3 +63,16 @@ wails dev
 - No real tab UI implementation yet.
 - No `internal/uiapi` extraction yet.
 - No installer/build pipeline cutover yet.
+
+## Execution Result (Current Session)
+
+- Implemented:
+  - `wails.json`
+  - frontend scaffold under `frontend/`
+  - runtime switch `--runtime harness|wails` in `cmd/ui/main.go`
+  - backend placeholder `WailsApp` entrypoint
+- Verified:
+  - `pwsh -File scripts/build_windows.ps1 -SkipTests -SkipReleaseAssets` passes
+  - `LightroomSyncUI.exe --action ping` preserves JSON envelope
+- Blocker:
+  - `LightroomSyncUI.exe --runtime wails` fails with `Unable to find Wails in go.mod` (Wails CLI preflight), and this environment cannot fetch modules from `proxy.golang.org`.

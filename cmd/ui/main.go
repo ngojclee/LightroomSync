@@ -34,6 +34,7 @@ func main() {
 	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync|subscribe-logs|check-update|download-update)")
 	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
+	runtimeMode := flag.String("runtime", uiRuntimeHarness, "UI runtime mode: harness|wails")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
 	if *showVersion {
@@ -50,6 +51,18 @@ func main() {
 			return
 		}
 		os.Exit(1)
+	}
+
+	mode := normalizeRuntimeMode(*runtimeMode)
+	if mode == uiRuntimeWails {
+		if err := launchWailsRuntime(*pipeName); err != nil {
+			log.Printf("[ERROR] Failed to launch Wails runtime: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+	if mode != uiRuntimeHarness {
+		log.Printf("[WARN] Unknown runtime mode %q, falling back to %q.", mode, uiRuntimeHarness)
 	}
 
 	if runtime.GOOS != "windows" {

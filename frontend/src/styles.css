@@ -1,0 +1,65 @@
+:root {
+  --bg: #0f1a24;
+  --surface: #1a2a39;
+  --text: #ebf1f5;
+  --muted: #9bb1c4;
+  --accent: #5cc9c2;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  background: radial-gradient(circle at top left, #1d3042 0%, var(--bg) 58%);
+  color: var(--text);
+}
+
+.shell {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 48px 24px;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0.01em;
+}
+
+.subtitle {
+  margin-top: 10px;
+  color: var(--muted);
+}
+
+.panel {
+  margin-top: 28px;
+  padding: 20px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 88%, #ffffff 12%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel h2 {
+  margin-top: 0;
+  font-size: 1.05rem;
+}
+
+dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: 10px 14px;
+}
+
+dt {
+  color: var(--muted);
+}
+
+dd {
+  margin: 0;
+}
+

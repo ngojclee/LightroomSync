@@ -22,12 +22,13 @@
 
 ## M1. Runtime Bootstrap
 
-- [ ] Add `wails.json` and Wails project metadata
-- [ ] Add frontend app scaffold (entrypoint + basic shell)
-- [ ] Add backend binding entrypoint for frontend calls
-- [ ] Add runtime switch in `cmd/ui` (`harness` vs `wails`) for transition
-- [ ] Keep existing `--action` CLI mode operational
+- [x] Add `wails.json` and Wails project metadata
+- [x] Add frontend app scaffold (entrypoint + basic shell)
+- [x] Add backend binding entrypoint for frontend calls
+- [x] Add runtime switch in `cmd/ui` (`harness` vs `wails`) for transition
+- [x] Keep existing `--action` CLI mode operational
 - [ ] Verification: `--action ping` unchanged + Wails shell launches
+Status note: `--action ping` pass confirmed from `build/bin/LightroomSyncUI.exe`; `--runtime wails` currently blocked because Wails CLI reports `Unable to find Wails in go.mod` in this offline environment.
 
 ## M2. Backend Bridge Refactor
 

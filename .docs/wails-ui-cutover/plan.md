@@ -17,6 +17,7 @@
 - `frontend/` hiện chưa có code, nên milestone M3/M4 là phần khối lượng chính.
 - Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
 - Wave 3 frontend shell contract and tab-command mapping are now explicitly documented for implementation alignment.
+- Wave 1 scaffold implementation is in place (runtime switch + frontend scaffold), with remaining unblock on Wails CLI preflight/module availability.
 
 ## Execution Order (6 Waves)
 

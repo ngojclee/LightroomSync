@@ -191,6 +191,7 @@
 - [x] Add Wave 2 `internal/uiapi` refactor spec + timeline/dependency map
 - [x] Add Wave 3 frontend shell spec + tab-to-command contract map
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
+Status note: runtime switch + Wails/frontend scaffold implemented; remaining blocker is Wails CLI preflight (`Unable to find Wails in go.mod`) in the current offline environment.
 - [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
 - [ ] Wire polling/event flows and robust in-flight/error handling

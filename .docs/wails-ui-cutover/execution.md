@@ -30,6 +30,8 @@ pwsh -File scripts/build_windows.ps1 -SkipTests
 Expected:
 - CLI action returns JSON.
 - Wails shell can launch in dev mode.
+Current blocker:
+- Wails CLI currently stops at preflight (`Unable to find Wails in go.mod`) in this environment; keep harness runtime as default until Wave 1 unblock.
 
 ### Wave 2
 
