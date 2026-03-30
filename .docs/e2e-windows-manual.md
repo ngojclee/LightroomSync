@@ -57,6 +57,29 @@ Checklist:
 5. Confirm lock file remains parseable (`STATUS|MACHINE|TIMESTAMP`) and no corruption.
 6. Repeat inverse direction (B -> A) to validate bi-directional workflow.
 
+Automated compare helper (after collecting both snapshot files):
+
+```powershell
+pwsh -File scripts/e2e_two_machine_compare.ps1 `
+  -SnapshotA build/e2e/snapshot-MACHINEA-<TIMESTAMP>.json `
+  -SnapshotB build/e2e/snapshot-MACHINEB-<TIMESTAMP>.json
+```
+
+Optional latency validation in the same compare report:
+
+```powershell
+pwsh -File scripts/e2e_two_machine_compare.ps1 `
+  -SnapshotA build/e2e/snapshot-MACHINEA-<TIMESTAMP>.json `
+  -SnapshotB build/e2e/snapshot-MACHINEB-<TIMESTAMP>.json `
+  -LatencyA build/e2e/latency-MACHINEA-<TIMESTAMP>.json `
+  -LatencyB build/e2e/latency-MACHINEB-<TIMESTAMP>.json
+```
+
+Outputs:
+
+- `build/e2e/two-machine-compare-<TIMESTAMP>.json`
+- `build/e2e/two-machine-compare-<TIMESTAMP>.md`
+
 ## 5. Tray Actions & Notifications Validation
 
 On one machine:

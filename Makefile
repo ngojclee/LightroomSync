@@ -1,6 +1,6 @@
 VERSION ?= 2.0.0.0
 
-.PHONY: all build installer e2e e2e-installer agent ui test clean
+.PHONY: all build installer e2e e2e-installer e2e-compare agent ui test clean
 
 all: build
 
@@ -15,6 +15,9 @@ e2e:
 
 e2e-installer:
 	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_installer_regression.ps1
+
+e2e-compare:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_two_machine_compare.ps1
 
 agent:
 	go build -ldflags "-X main.Version=$(VERSION)" -o build/bin/LightroomSyncAgent.exe ./cmd/agent

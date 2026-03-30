@@ -8,6 +8,7 @@ param(
     [int]$IntervalMs = 40,
     [double]$P95TargetMs = 100,
     [string]$PipeName = "\\.\pipe\LightroomSyncIPC",
+    [string]$LocalAppDataPath = "",
     [switch]$NoAutoStartAgent,
     [switch]$KeepAgentRunning
 )
@@ -28,8 +29,35 @@ if (-not (Test-Path -LiteralPath $agentExe)) {
 }
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
 
+$resolvedLocalAppData = ""
+if (-not [string]::IsNullOrWhiteSpace($LocalAppDataPath)) {
+    if ([System.IO.Path]::IsPathRooted($LocalAppDataPath)) {
+        $resolvedLocalAppData = $LocalAppDataPath
+    } else {
+        $resolvedLocalAppData = Join-Path $ProjectRoot $LocalAppDataPath
+    }
+} elseif ($env:LOCALAPPDATA) {
+    $resolvedLocalAppData = $env:LOCALAPPDATA
+} else {
+    $resolvedLocalAppData = Join-Path $resolvedOutputDir "localappdata"
+}
+New-Item -ItemType Directory -Force -Path $resolvedLocalAppData | Out-Null
+$env:LOCALAPPDATA = $resolvedLocalAppData
+
 $startedAgentByScript = $false
 $startedAgentPid = 0
+$startedAgentJobId = 0
+
+$resolvedHostName = ""
+if (-not [string]::IsNullOrWhiteSpace($env:COMPUTERNAME)) {
+    $resolvedHostName = $env:COMPUTERNAME.Trim()
+} else {
+    try {
+        $resolvedHostName = [System.Net.Dns]::GetHostName()
+    } catch {
+        $resolvedHostName = "UNKNOWN-HOST"
+    }
+}
 
 function Get-JsonBlock {
     param([Parameter(Mandatory = $true)][string]$Raw)
@@ -82,11 +110,23 @@ function Ensure-AgentRunning {
 
     try {
         $proc = Start-Process -FilePath $agentExe -ArgumentList "--minimized" -PassThru
+        $script:startedAgentByScript = $true
+        $script:startedAgentPid = $proc.Id
     } catch {
-        throw "Failed to start Agent automatically: $($_.Exception.Message)"
+        try {
+            $job = Start-Job -ScriptBlock {
+                param([string]$ExePath, [string]$LocalAppData)
+                $env:LOCALAPPDATA = $LocalAppData
+                & $ExePath --minimized
+            } -ArgumentList $agentExe, $resolvedLocalAppData
+
+            $script:startedAgentByScript = $true
+            $script:startedAgentPid = 0
+            $script:startedAgentJobId = $job.Id
+        } catch {
+            throw "Failed to start Agent automatically: $($_.Exception.Message)"
+        }
     }
-    $script:startedAgentByScript = $true
-    $script:startedAgentPid = $proc.Id
 
     for ($i = 0; $i -lt 25; $i++) {
         Start-Sleep -Milliseconds 250
@@ -108,6 +148,14 @@ function Stop-AgentIfOwned {
     if ($script:startedAgentPid -gt 0) {
         Stop-Process -Id $script:startedAgentPid -Force -ErrorAction SilentlyContinue
         Start-Sleep -Milliseconds 300
+    }
+    if ($script:startedAgentJobId -gt 0) {
+        $job = Get-Job -Id $script:startedAgentJobId -ErrorAction SilentlyContinue
+        if ($job) {
+            Stop-Job -Id $script:startedAgentJobId -ErrorAction SilentlyContinue
+            Remove-Job -Id $script:startedAgentJobId -Force -ErrorAction SilentlyContinue
+        }
+        $script:startedAgentJobId = 0
     }
 }
 
@@ -142,7 +190,8 @@ function Run-Snapshot {
 
     $snapshot = [ordered]@{
         created_at_utc = (Get-Date).ToUniversalTime().ToString("o")
-        host           = $env:COMPUTERNAME
+        host           = $resolvedHostName
+        local_appdata  = $resolvedLocalAppData
         pipe           = $PipeName
         status         = $status.Parsed
         config         = $config.Parsed
@@ -150,7 +199,7 @@ function Run-Snapshot {
         logs           = $logs.Parsed
     }
 
-    $outPath = Join-Path $resolvedOutputDir ("snapshot-{0}-{1}.json" -f $env:COMPUTERNAME, (New-RunStamp))
+    $outPath = Join-Path $resolvedOutputDir ("snapshot-{0}-{1}.json" -f $resolvedHostName, (New-RunStamp))
     $snapshot | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $outPath -Encoding UTF8
     Write-Host "[e2e] snapshot => $outPath"
 }
@@ -200,7 +249,8 @@ function Run-Latency {
 
     $report = [ordered]@{
         created_at_utc = (Get-Date).ToUniversalTime().ToString("o")
-        host           = $env:COMPUTERNAME
+        host           = $resolvedHostName
+        local_appdata  = $resolvedLocalAppData
         iterations     = $Iterations
         interval_ms    = $IntervalMs
         target_p95_ms  = $P95TargetMs
@@ -216,7 +266,7 @@ function Run-Latency {
         pass       = ($failures.Count -eq 0 -and $p95 -le $P95TargetMs)
     }
 
-    $outPath = Join-Path $resolvedOutputDir ("latency-{0}-{1}.json" -f $env:COMPUTERNAME, (New-RunStamp))
+    $outPath = Join-Path $resolvedOutputDir ("latency-{0}-{1}.json" -f $resolvedHostName, (New-RunStamp))
     $report | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $outPath -Encoding UTF8
 
     Write-Host ("[e2e] latency p95={0}ms, failures={1}, pass={2}" -f `
