@@ -385,3 +385,10 @@ The Agent runs locally in the background and is controlled via IPC connections f
 - [x] **Default State PAUSE**: Automatically set sync to paused if `last_synced_timestamp` is completely empty (first run).
 - [x] **Onboarding Guide Tab**: Add a setup wizard or guide tab explaining how to merge catalogs safely (Export/Import as Catalog).
 - [x] **Interactive Choice**: Give users distinct buttons: "Pull from Network (Overwrite Local)" or "Push Local as Master (Overwrite Network)".
+
+### Phase 11.5: Finalization, Branding & Installer UX
+- [x] **Agent Bootstrap Reliability:** App.ts triggers agent immediately without waiting for error.
+- [x] **Unified Exit Lifecycle:** Tray Exit App terminates both UI and Agent.
+- [x] **Branding Unification:** Synchronized GUI/Agent icons.
+- [x] **Installer Update:** Adjusted Inno Setup to allow custom installation paths via DisableDirPage=no.
+- [x] **Version Synchronization:** Exposed AppInfo via Wails IPC. Dynamically injected centralized build-time version into the UI sidebar, about dialog, and update checkers to eliminate hardcoded values. Updated UI copyright string to dynamic year. Rebuilt installer using uild_installer.ps1 -Version "2.0.3.0".
