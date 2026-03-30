@@ -19,7 +19,7 @@
 - [x] Define IPC command set: `GetStatus`, `SaveConfig`, `SyncNow`, `SyncBackup`, `GetBackups`, `SubscribeLogs`
 - [x] Define IPC error model and timeout behavior
 - [x] Define reconnect behavior when UI starts before Agent
-- [ ] Implement architecture spike proving: Agent tray + UI launch/focus + IPC roundtrip
+- [x] Implement architecture spike proving: Agent tray + UI launch/focus + IPC roundtrip (automated script `scripts/phase0_2_architecture_spike.ps1` + runbook in `.docs/phase0-2-architecture-spike.md`)
 
 ### 0.3 Platform Boundary
 
