@@ -4,7 +4,7 @@
 >  
 > Target: Real Wails GUI as default UI runtime
 >  
-> Current Focus: Wave 5 (M5) Build/Installer integration (runtime-aware pipeline delivered; host-specific installer compile still pending)
+> Current Focus: Wave 6 (M6) Validation (Wails smoke script delivered; tray/manual cutover checks pending)
 >  
 > Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 >  
@@ -69,10 +69,11 @@ Status note: build pipeline now accepts `-UIRuntime harness|wails` and optional 
 
 ## M6. Validation
 
-- [ ] Add Wails-specific smoke script for startup + IPC + close behavior
+- [x] Add Wails-specific smoke script for startup + IPC + close behavior
 - [ ] Execute tray open/focus validation with Wails UI
 - [ ] Execute Phase 8.3 manual matrix using Wails UI
 - [ ] Mark cutover complete and switch default UI runtime
+Status note: `scripts/e2e_wails_ui_smoke.ps1` now generates `build/e2e/wails-ui-smoke-*.json` and validates startup + IPC + close. In this environment, strict mode reports expected failure (`mode=startup_failed`) due Wails preflight blocker; `-AcceptKnownPreflightBlocker` records `mode=known_blocker_accepted` for trackable evidence without masking the blocker.
 
 ## Cutover Definition of Done
 

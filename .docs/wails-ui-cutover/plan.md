@@ -20,6 +20,7 @@
 - Wave 1 scaffold implementation is in place (runtime switch + frontend scaffold), with remaining unblock on Wails CLI preflight/module availability.
 - Wave 2 bridge refactor is implemented: UI action handlers are centralized in `internal/uiapi`, covered by package tests, and parity evidence is captured via `scripts/e2e_ui_command_parity.ps1`.
 - Wave 5 pipeline baseline is implemented: build/installer scripts now support explicit UI runtime selection (`harness|wails`) and fallback-aware runtime provenance via `build-metadata.json`.
+- Wave 6 smoke baseline is implemented: a dedicated Wails smoke probe now validates startup + IPC + close and records strict/known-blocker evidence under `build/e2e`.
 
 ## Execution Order (6 Waves)
 

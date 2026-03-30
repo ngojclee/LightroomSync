@@ -73,13 +73,18 @@ Expected:
 ### Wave 6
 
 ```powershell
+pwsh -File scripts/e2e_wails_ui_smoke.ps1
+pwsh -File scripts/e2e_wails_ui_smoke.ps1 -AcceptKnownPreflightBlocker
 pwsh -File scripts/e2e_installer_regression.ps1
 pwsh -File scripts/e2e_windows_manual.ps1 -Mode latency -Iterations 120 -IntervalMs 40 -P95TargetMs 100
 ```
 
 Expected:
+- Wails smoke report generated (`wails-ui-smoke-*.json`) with startup/IPC/close checks.
 - Regression scripts pass.
 - Manual matrix evidence complete for cutover signoff.
+Environment note:
+- In hosts where Wails preflight is still blocked, use `-AcceptKnownPreflightBlocker` to capture explicit blocker evidence while keeping the run auditable.
 
 ## Evidence Folder Convention
 
