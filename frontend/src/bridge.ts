@@ -2,10 +2,14 @@ import type { ActionEnvelope } from "./types";
 
 interface RuntimeBridge {
   executeAction(action: string, payload?: string): Promise<ActionEnvelope> | ActionEnvelope;
+  selectDirectory?(title: string): Promise<string> | string;
+  selectFile?(title: string, filters: string): Promise<string> | string;
 }
 
 interface WailsMethodMap {
   ExecuteAction?: (action: string, payload?: string) => Promise<ActionEnvelope> | ActionEnvelope;
+  SelectDirectory?: (title: string) => Promise<string> | string;
+  SelectFile?: (title: string, filters: string) => Promise<string> | string;
 }
 
 interface WailsMainMap {
@@ -56,10 +60,23 @@ function resolveBridge(): RuntimeBridge | null {
   }
 
   const executeAction = window.go?.main?.WailsApp?.ExecuteAction;
+  const selectDirectoryAttr = window.go?.main?.WailsApp?.SelectDirectory;
+  const selectFileAttr = window.go?.main?.WailsApp?.SelectFile;
+
   if (typeof executeAction === "function") {
     return {
       executeAction(action: string, payload?: string) {
         return executeAction(action, payload);
+      },
+      selectDirectory(title: string) {
+        return typeof selectDirectoryAttr === "function" 
+            ? selectDirectoryAttr(title) 
+            : "";
+      },
+      selectFile(title: string, filters: string) {
+        return typeof selectFileAttr === "function" 
+            ? selectFileAttr(title, filters) 
+            : "";
       }
     };
   }
@@ -79,5 +96,37 @@ export async function executeAction(action: string, payload = ""): Promise<Actio
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown bridge error";
     return offlineEnvelope(message);
+  }
+}
+
+export async function selectDirectory(title: string): Promise<string> {
+  const bridge = resolveBridge();
+  if (!bridge || typeof bridge.selectDirectory !== "function") {
+    console.warn("Wails Native Dialog not available for SelectDirectory; fallback needed or unsupported environment");
+    return "";
+  }
+  
+  try {
+    const dir = await bridge.selectDirectory(title);
+    return typeof dir === "string" ? dir : "";
+  } catch (err) {
+    console.error("Select directory error:", err);
+    return "";
+  }
+}
+
+export async function selectFile(title: string, filters = ""): Promise<string> {
+  const bridge = resolveBridge();
+  if (!bridge || typeof bridge.selectFile !== "function") {
+    console.warn("Wails Native Dialog not available for SelectFile");
+    return "";
+  }
+  
+  try {
+    const file = await bridge.selectFile(title, filters);
+    return typeof file === "string" ? file : "";
+  } catch (err) {
+    console.error("Select file error:", err);
+    return "";
   }
 }

@@ -255,6 +255,7 @@ Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_
 - [x] Refactor frontend/src/styles.css with complete UI design tokens (CSS variables)
 - [x] Refactor frontend/src/App.ts to apply Sidebar layout and new CSS structure
 - [x] Implement Light/Dark mode functionality with 'btn-theme-toggle'
+- [x] Add Native Wails Browse Dialog bindings for Backup Directory and Catalog path selection
 - [x] Re-run `e2e_ui_command_parity.ps1` to ensure DOM refs and event bindings remain intact
 
 ## Post-Launch

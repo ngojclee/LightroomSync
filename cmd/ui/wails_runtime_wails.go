@@ -39,6 +39,7 @@ func launchWailsRuntime(pipeName string) error {
 		Bind: []interface{}{
 			app,
 		},
+		OnStartup: app.Startup,
 	}
 	applyWailsPlatformOptions(appOptions)
 

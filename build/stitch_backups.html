@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "inverse-on-surface": "#313031",
+              "surface-variant": "#353436",
+              "primary-fixed-dim": "#deb7ff",
+              "on-error": "#690005",
+              "tertiary-fixed": "#f2daff",
+              "on-primary-fixed": "#2d0050",
+              "on-secondary-container": "#006c71",
+              "on-error-container": "#ffdad6",
+              "surface-tint": "#deb7ff",
+              "on-primary": "#4a007f",
+              "background": "#131314",
+              "on-secondary": "#003739",
+              "on-tertiary-fixed": "#2e004e",
+              "on-tertiary-fixed-variant": "#6a0baa",
+              "tertiary": "#e0b6ff",
+              "on-secondary-fixed": "#002021",
+              "secondary-container": "#00f4fe",
+              "primary-fixed": "#f1dbff",
+              "surface": "#131314",
+              "on-primary-container": "#e4c2ff",
+              "error": "#ffb4ab",
+              "surface-container-high": "#2a2a2b",
+              "inverse-primary": "#8234c6",
+              "surface-container-lowest": "#0e0e0f",
+              "inverse-surface": "#e5e2e3",
+              "on-background": "#e5e2e3",
+              "on-primary-fixed-variant": "#680eac",
+              "surface-container-highest": "#353436",
+              "tertiary-container": "#7d2bbd",
+              "surface-dim": "#131314",
+              "outline": "#988d9e",
+              "primary-container": "#7b2cbf",
+              "on-tertiary-container": "#e5c1ff",
+              "primary": "#deb7ff",
+              "surface-bright": "#3a393a",
+              "on-surface-variant": "#cfc2d5",
+              "outline-variant": "#4c4353",
+              "surface-container": "#201f20",
+              "secondary-fixed": "#63f7ff",
+              "secondary-fixed-dim": "#00dce5",
+              "on-tertiary": "#4c007d",
+              "on-surface": "#e5e2e3",
+              "secondary": "#e6feff",
+              "error-container": "#93000a",
+              "on-secondary-fixed-variant": "#004f53",
+              "surface-container-low": "#1c1b1c",
+              "tertiary-fixed-dim": "#e0b6ff"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-panel {
+        background: rgba(53, 52, 54, 0.6);
+        backdrop-filter: blur(20px);
+      }
+      .neon-glow-primary {
+        box-shadow: 0 0 15px rgba(123, 44, 191, 0.3);
+      }
+      .neon-glow-secondary {
+        box-shadow: 0 0 15px rgba(0, 244, 254, 0.2);
+      }
+      .custom-scrollbar::-webkit-scrollbar {
+        width: 4px;
+      }
+      .custom-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .custom-scrollbar::-webkit-scrollbar-thumb {
+        background: #2a2a2b;
+        border-radius: 10px;
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body selection:bg-primary-container selection:text-white antialiased">
+<!-- SideNavBar (Authority Source: JSON) -->
+<aside class="fixed left-0 top-0 bottom-0 w-64 z-50 bg-[#0e0e0f] dark:bg-[#0e0e0f] shadow-[40px_0_40px_rgba(123,44,191,0.05)] font-['Inter'] text-xs font-medium flex flex-col h-full py-8">
+<div class="px-8 mb-10">
+<h1 class="text-lg font-black text-[#7B2CBF] uppercase tracking-tighter">LightroomSync</h1>
+<p class="text-[10px] opacity-40 tracking-widest uppercase mt-1">Pro Darkroom Edition</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 text-[#e5e2e3] opacity-60 px-6 py-3 w-full hover:bg-[#201f20] hover:opacity-100 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="analytics">analytics</span>
+<span>Status</span>
+</a>
+<a class="flex items-center gap-3 text-[#e5e2e3] opacity-60 px-6 py-3 w-full hover:bg-[#201f20] hover:opacity-100 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="settings">settings</span>
+<span>Settings</span>
+</a>
+<!-- Active Tab: Backups -->
+<a class="flex items-center gap-3 bg-[#2a2a2b] text-[#00F5FF] border-l-2 border-[#00F5FF] px-6 py-3 w-full active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="cloud_upload">cloud_upload</span>
+<span>Backups</span>
+</a>
+<a class="flex items-center gap-3 text-[#e5e2e3] opacity-60 px-6 py-3 w-full hover:bg-[#201f20] hover:opacity-100 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="description">description</span>
+<span>Logs</span>
+</a>
+<a class="flex items-center gap-3 text-[#e5e2e3] opacity-60 px-6 py-3 w-full hover:bg-[#201f20] hover:opacity-100 transition-all duration-300" href="#">
+<span class="material-symbols-outlined text-lg" data-icon="system_update_alt">system_update_alt</span>
+<span>Update</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="p-4 bg-surface-container rounded-xl flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden">
+<img alt="User Profile" class="w-full h-full object-cover" data-alt="Close up portrait of a professional photographer in a dark studio setting with soft purple ambient light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuArzH8l5nN7xTVY0jZjGlOgq5t5yIG-F_2uRb9qRgD3heiKRwK0YToIwtiZtkLk8YJKTQywIEP0FSaQqJhJLQyhcxuTl81S8t4G3rOTZeu2kzQIt0_R80L999wNWqhvduKLFPw0GCI2kExKvq7ZXygT5fNXbPmyuFtd8_mtYoebRTLlb323Fk5HLidQD5J6BJf-omTOX_1DMlFxUvi4pS5HhtEKPC5XimMDDOHT7Z0xSbqvYZzEAyxmwdpPBS-ktVsh1HxSPrH_1lc"/>
+</div>
+<div>
+<p class="text-[11px] font-bold">Alex Rivera</p>
+<p class="text-[9px] opacity-50 uppercase tracking-tighter">Creative Lead</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopAppBar (Authority Source: JSON) -->
+<header class="fixed top-0 right-0 left-64 h-16 z-40 bg-[#131314] flex items-center justify-between px-8 w-full font-['Manrope'] text-sm tracking-wide">
+<div class="flex items-center gap-4">
+<span class="text-xl font-bold text-[#e5e2e3] tracking-tight">Backups Control</span>
+</div>
+<div class="flex items-center gap-6">
+<button class="text-[#e5e2e3] opacity-70 hover:text-[#deb7ff] transition-colors scale-95 duration-200">
+<span class="material-symbols-outlined" data-icon="refresh">refresh</span>
+</button>
+<div class="h-4 w-[1px] bg-outline-variant opacity-20"></div>
+<span class="text-[#7B2CBF] font-bold">Auto-sync: Active</span>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="ml-64 pt-24 px-12 pb-12 min-h-screen bg-surface">
+<!-- Hero Summary / Header Section -->
+<div class="flex justify-between items-end mb-10">
+<div>
+<h2 class="text-5xl font-extrabold font-headline tracking-tighter text-on-surface mb-2">Backups</h2>
+<p class="text-on-surface-variant max-w-md">Secure snapshots of your creative workflow. Automated redundancy with verified integrity checks.</p>
+</div>
+<div class="flex gap-4">
+<button class="flex items-center gap-2 px-5 py-2.5 bg-surface-container-high rounded-lg text-secondary border border-outline-variant border-opacity-15 hover:bg-surface-container-highest transition-all">
+<span class="material-symbols-outlined text-lg" data-icon="filter_list">filter_list</span>
+<span class="text-xs font-semibold uppercase tracking-widest">Filter</span>
+</button>
+<button class="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-tr from-primary-container to-primary rounded-lg text-white font-bold neon-glow-primary hover:scale-[1.02] transition-transform">
+<span class="material-symbols-outlined text-lg" data-icon="add">add</span>
+<span class="text-xs uppercase tracking-widest">New Backup</span>
+</button>
+</div>
+</div>
+<!-- Glassmorphism Table Container -->
+<div class="glass-panel rounded-xl overflow-hidden border border-outline-variant border-opacity-10 shadow-2xl">
+<!-- Table Header -->
+<div class="grid grid-cols-12 gap-4 px-8 py-5 bg-surface-container-lowest bg-opacity-50 text-[10px] uppercase tracking-[0.2em] font-bold text-on-surface-variant">
+<div class="col-span-4">Backup Name</div>
+<div class="col-span-2">Date Created</div>
+<div class="col-span-2">Archive Size</div>
+<div class="col-span-2 text-center">Status</div>
+<div class="col-span-2 text-right">Action</div>
+</div>
+<!-- Table Body / List -->
+<div class="custom-scrollbar max-h-[calc(100vh-400px)] overflow-y-auto">
+<!-- Row 1: Active/Syncing -->
+<div class="grid grid-cols-12 gap-4 px-8 py-6 items-center border-l-2 border-secondary bg-surface-container-high group hover:bg-surface-container-highest transition-all duration-300">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-secondary-container bg-opacity-10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary" data-icon="sync" style="font-variation-settings: 'FILL' 0;">sync</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Daily Delta</p>
+<p class="text-[11px] text-on-surface-variant opacity-60">Incremental catalog update</p>
+</div>
+</div>
+<div class="col-span-2 text-sm text-on-surface-variant">Oct 24, 2023</div>
+<div class="col-span-2 text-sm font-mono text-on-surface">1.2 GB</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-3 py-1 rounded-full bg-secondary-container bg-opacity-10 text-secondary text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="w-1 h-1 bg-secondary rounded-full animate-pulse"></span>
+                            Syncing...
+                        </span>
+</div>
+<div class="col-span-2 text-right">
+<button class="px-4 py-1.5 rounded-lg border border-secondary text-secondary text-[11px] font-bold uppercase tracking-tighter opacity-50 cursor-not-allowed">
+                            Restore
+                        </button>
+</div>
+</div>
+<!-- Row 2: Verified -->
+<div class="grid grid-cols-12 gap-4 px-8 py-6 items-center border-l-2 border-transparent hover:border-secondary hover:bg-surface-container-high group transition-all duration-300">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:bg-primary-container group-hover:bg-opacity-20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="folder_zip">folder_zip</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Weekly Full Catalog</p>
+<p class="text-[11px] text-on-surface-variant opacity-60">Complete environment snapshot</p>
+</div>
+</div>
+<div class="col-span-2 text-sm text-on-surface-variant">Oct 20, 2023</div>
+<div class="col-span-2 text-sm font-mono text-on-surface">42.8 GB</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-3 py-1 rounded-full bg-primary-container bg-opacity-10 text-primary text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+                            Verified
+                        </span>
+</div>
+<div class="col-span-2 text-right">
+<button class="px-4 py-1.5 rounded-lg border border-secondary border-opacity-30 text-secondary text-[11px] font-bold uppercase tracking-tighter hover:bg-secondary hover:text-on-secondary-container transition-all neon-glow-secondary">
+                            Restore
+                        </button>
+</div>
+</div>
+<!-- Row 3: Verified -->
+<div class="grid grid-cols-12 gap-4 px-8 py-6 items-center border-l-2 border-transparent hover:border-secondary hover:bg-surface-container-high group transition-all duration-300">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:bg-primary-container group-hover:bg-opacity-20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="inventory_2">inventory_2</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Pre-Update Archive</p>
+<p class="text-[11px] text-on-surface-variant opacity-60">v12.4 compatibility point</p>
+</div>
+</div>
+<div class="col-span-2 text-sm text-on-surface-variant">Oct 15, 2023</div>
+<div class="col-span-2 text-sm font-mono text-on-surface">38.2 GB</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-3 py-1 rounded-full bg-primary-container bg-opacity-10 text-primary text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+                            Verified
+                        </span>
+</div>
+<div class="col-span-2 text-right">
+<button class="px-4 py-1.5 rounded-lg border border-secondary border-opacity-30 text-secondary text-[11px] font-bold uppercase tracking-tighter hover:bg-secondary hover:text-on-secondary-container transition-all neon-glow-secondary">
+                            Restore
+                        </button>
+</div>
+</div>
+<!-- Row 4: Verified -->
+<div class="grid grid-cols-12 gap-4 px-8 py-6 items-center border-l-2 border-transparent hover:border-secondary hover:bg-surface-container-high group transition-all duration-300">
+<div class="col-span-4 flex items-center gap-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-highest flex items-center justify-center group-hover:bg-primary-container group-hover:bg-opacity-20 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors" data-icon="history">history</span>
+</div>
+<div>
+<p class="font-bold text-on-surface">Manual Export - Project X</p>
+<p class="text-[11px] text-on-surface-variant opacity-60">Finalized edits for client review</p>
+</div>
+</div>
+<div class="col-span-2 text-sm text-on-surface-variant">Oct 10, 2023</div>
+<div class="col-span-2 text-sm font-mono text-on-surface">15.5 GB</div>
+<div class="col-span-2 flex justify-center">
+<span class="px-3 py-1 rounded-full bg-primary-container bg-opacity-10 text-primary text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+<span class="material-symbols-outlined text-[12px]" data-icon="verified" style="font-variation-settings: 'FILL' 1;">verified</span>
+                            Verified
+                        </span>
+</div>
+<div class="col-span-2 text-right">
+<button class="px-4 py-1.5 rounded-lg border border-secondary border-opacity-30 text-secondary text-[11px] font-bold uppercase tracking-tighter hover:bg-secondary hover:text-on-secondary-container transition-all neon-glow-secondary">
+                            Restore
+                        </button>
+</div>
+</div>
+</div>
+<!-- Table Footer Stats -->
+<div class="px-8 py-4 bg-surface-container-lowest bg-opacity-80 flex justify-between items-center text-[11px] text-on-surface-variant font-medium border-t border-outline-variant border-opacity-10">
+<div class="flex gap-6">
+<span class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                        1 Backup in progress
+                    </span>
+<span class="flex items-center gap-1.5">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                        12 Verified archives
+                    </span>
+</div>
+<div class="opacity-50">
+                    Total Cloud Usage: 142.5 GB / 1 TB
+                </div>
+</div>
+</div>
+<!-- Asymmetric Detail Cards (Bento Style) -->
+<div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+<div class="md:col-span-2 glass-panel p-8 rounded-xl relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary opacity-5 blur-[80px] -mr-32 -mt-32"></div>
+<h3 class="text-xl font-bold font-headline mb-4 flex items-center gap-3">
+<span class="material-symbols-outlined text-secondary" data-icon="security">security</span>
+                    Health &amp; Integrity
+                </h3>
+<div class="flex items-end gap-12">
+<div>
+<div class="text-4xl font-black text-on-surface mb-1">99.9%</div>
+<p class="text-[10px] uppercase tracking-widest font-bold opacity-40">Verification Success Rate</p>
+</div>
+<div class="flex-1">
+<div class="h-2 w-full bg-surface-container-highest rounded-full overflow-hidden mb-2">
+<!-- Custom Sync Glow Progress Bar -->
+<div class="h-full w-[99%] bg-gradient-to-r from-primary-container to-secondary relative">
+<div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent w-20 animate-[pulse_2s_infinite]"></div>
+</div>
+</div>
+<p class="text-[10px] text-on-surface-variant italic">Last full integrity check: 2 hours ago</p>
+</div>
+</div>
+</div>
+<div class="glass-panel p-8 rounded-xl flex flex-col justify-between border-l-2 border-primary-container">
+<div>
+<h3 class="text-xs uppercase tracking-widest font-black text-primary mb-4">Storage Priority</h3>
+<p class="text-lg font-bold text-on-surface leading-tight">Catalogs are prioritized on Tier-1 NVMe nodes.</p>
+</div>
+<div class="mt-6 flex items-center justify-between">
+<span class="text-xs text-on-surface-variant">Cloud region: US-West</span>
+<span class="material-symbols-outlined text-on-surface-variant opacity-30" data-icon="public">public</span>
+</div>
+</div>
+</div>
+</main>
+<!-- Background Decorative Elements -->
+<div class="fixed top-0 left-0 w-full h-full -z-10 pointer-events-none overflow-hidden">
+<div class="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-primary-container rounded-full blur-[180px] opacity-10"></div>
+<div class="absolute bottom-[-10%] left-[10%] w-[400px] h-[400px] bg-secondary-container rounded-full blur-[150px] opacity-5"></div>
+</div>
+</body></html>

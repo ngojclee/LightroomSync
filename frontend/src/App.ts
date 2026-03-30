@@ -1,4 +1,4 @@
-import { executeAction } from "./bridge";
+import { executeAction, selectDirectory, selectFile } from "./bridge";
 import type {
   ActionEnvelope,
   AppStatus,
@@ -67,6 +67,8 @@ interface Refs {
   inputPresetCategories: HTMLInputElement;
   btnGetConfig: HTMLButtonElement;
   btnSaveConfig: HTMLButtonElement;
+  btnBrowseBackup: HTMLButtonElement;
+  btnBrowseCatalog: HTMLButtonElement;
   backupsSelect: HTMLSelectElement;
   backupsHelper: HTMLDivElement;
   btnRefreshBackups: HTMLButtonElement;
@@ -313,11 +315,17 @@ class FrontendShell {
                 <div class="grid two-col">
                   <div class="full">
                     <label for="cfg-backup-folder">Backup Destination Directory</label>
-                    <input id="cfg-backup-folder" type="text" placeholder="D:\\Backups" />
+                    <div style="display: flex; gap: 8px;">
+                      <input id="cfg-backup-folder" type="text" placeholder="D:\\Backups" style="flex: 1;" />
+                      <button id="btn-browse-backup" class="secondary" style="width: auto; padding: 0 16px;">Browse</button>
+                    </div>
                   </div>
                   <div class="full">
                     <label for="cfg-catalog-path">Lightroom Catalog Source Path</label>
-                    <input id="cfg-catalog-path" type="text" placeholder="E:\\Lightroom\\Master.lrcat" />
+                    <div style="display: flex; gap: 8px;">
+                      <input id="cfg-catalog-path" type="text" placeholder="E:\\Lightroom\\Master.lrcat" style="flex: 1;" />
+                      <button id="btn-browse-catalog" class="secondary" style="width: auto; padding: 0 16px;">Browse</button>
+                    </div>
                   </div>
                   <div>
                     <label for="cfg-heartbeat">Heartbeat Send Interval (s)</label>
@@ -462,6 +470,8 @@ class FrontendShell {
       inputPresetCategories: byId<HTMLInputElement>("cfg-preset-categories"),
       btnGetConfig: byId<HTMLButtonElement>("btn-get-config"),
       btnSaveConfig: byId<HTMLButtonElement>("btn-save-config"),
+      btnBrowseBackup: byId<HTMLButtonElement>("btn-browse-backup"),
+      btnBrowseCatalog: byId<HTMLButtonElement>("btn-browse-catalog"),
       backupsSelect: byId<HTMLSelectElement>("backups-list"),
       backupsHelper: byId<HTMLDivElement>("backups-helper"),
       btnRefreshBackups: byId<HTMLButtonElement>("btn-refresh-backups"),
@@ -499,6 +509,18 @@ class FrontendShell {
 
     this.refs.btnGetConfig.addEventListener("click", () => void this.refreshConfig());
     this.refs.btnSaveConfig.addEventListener("click", () => void this.saveConfig());
+    this.refs.btnBrowseBackup.addEventListener("click", async () => {
+      const dir = await selectDirectory("Select Backup Destination Directory");
+      if (dir) {
+        this.refs.inputBackupFolder.value = dir;
+      }
+    });
+    this.refs.btnBrowseCatalog.addEventListener("click", async () => {
+      const file = await selectFile("Select Lightroom Catalog File", "*.lrcat");
+      if (file) {
+        this.refs.inputCatalogPath.value = file;
+      }
+    });
 
     this.refs.btnRefreshBackups.addEventListener("click", () => void this.refreshBackups());
     this.refs.btnSyncSelected.addEventListener("click", () => void this.syncSelectedBackup());

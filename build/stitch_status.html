@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LightroomSync | Status Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#deb7ff",
+              "on-secondary": "#003739",
+              "primary-container": "#7b2cbf",
+              "outline-variant": "#4c4353",
+              "on-primary-container": "#e4c2ff",
+              "background": "#131314",
+              "tertiary-fixed-dim": "#e0b6ff",
+              "primary-fixed": "#f1dbff",
+              "surface": "#131314",
+              "on-tertiary-fixed-variant": "#6a0baa",
+              "on-primary-fixed-variant": "#680eac",
+              "surface-container-lowest": "#0e0e0f",
+              "error": "#ffb4ab",
+              "surface-dim": "#131314",
+              "inverse-primary": "#8234c6",
+              "tertiary-fixed": "#f2daff",
+              "surface-variant": "#353436",
+              "surface-container": "#201f20",
+              "outline": "#988d9e",
+              "inverse-on-surface": "#313031",
+              "on-surface-variant": "#cfc2d5",
+              "surface-tint": "#deb7ff",
+              "on-background": "#e5e2e3",
+              "on-tertiary-container": "#e5c1ff",
+              "primary-fixed-dim": "#deb7ff",
+              "on-primary-fixed": "#2d0050",
+              "secondary-container": "#00f4fe",
+              "surface-container-high": "#2a2a2b",
+              "secondary-fixed": "#63f7ff",
+              "tertiary-container": "#7d2bbd",
+              "surface-bright": "#3a393a",
+              "on-secondary-fixed-variant": "#004f53",
+              "on-secondary-container": "#006c71",
+              "on-tertiary-fixed": "#2e004e",
+              "on-error": "#690005",
+              "error-container": "#93000a",
+              "surface-container-highest": "#353436",
+              "tertiary": "#e0b6ff",
+              "surface-container-low": "#1c1b1c",
+              "inverse-surface": "#e5e2e3",
+              "on-secondary-fixed": "#002021",
+              "secondary": "#e6feff",
+              "secondary-fixed-dim": "#00dce5",
+              "on-surface": "#e5e2e3",
+              "on-error-container": "#ffdad6",
+              "on-primary": "#4a007f",
+              "on-tertiary": "#4c007d"
+            },
+            fontFamily: {
+              "headline": ["Manrope"],
+              "body": ["Inter"],
+              "label": ["Inter"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+      .glass-panel {
+        background: rgba(53, 52, 54, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+      }
+      .neon-glow-primary {
+        box-shadow: 0 0 15px rgba(123, 44, 191, 0.3);
+      }
+      .neon-glow-secondary {
+        box-shadow: 0 0 15px rgba(0, 245, 255, 0.2);
+      }
+      .sync-comet {
+        background: linear-gradient(90deg, transparent, #63f7ff);
+        animation: comet-move 2s infinite linear;
+      }
+      @keyframes comet-move {
+        from { transform: translateX(-100%); }
+        to { transform: translateX(400%); }
+      }
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container">
+<!-- SideNavBar (Execution from JSON) -->
+<aside class="h-screen w-64 fixed left-0 top-0 bg-[#0e0e0f]/80 backdrop-blur-xl flex flex-col py-8 shadow-[40px_0_40px_-20px_rgba(123,44,191,0.1)] z-50">
+<div class="px-6 mb-10">
+<h1 class="text-xl font-bold bg-gradient-to-br from-[#7B2CBF] to-[#deb7ff] bg-clip-text text-transparent font-headline tracking-tight">LightroomSync</h1>
+<p class="text-xs text-on-surface-variant/50 font-label mt-1">Creative Suite</p>
+</div>
+<nav class="flex-1 space-y-1">
+<!-- Status (Active) -->
+<a class="flex items-center space-x-3 py-3 px-4 bg-[#2a2a2b] text-[#00F5FF] border-l-2 border-[#00F5FF] shadow-[0_0_15px_rgba(0,245,255,0.2)] font-headline transition-transform active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="analytics">analytics</span>
+<span class="text-sm font-semibold">Status</span>
+</a>
+<!-- Settings -->
+<a class="flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="text-sm">Settings</span>
+</a>
+<!-- Backups -->
+<a class="flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="backup">backup</span>
+<span class="text-sm">Backups</span>
+</a>
+<!-- Logs -->
+<a class="flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="text-sm">Logs</span>
+</a>
+<!-- Update -->
+<a class="flex items-center space-x-3 py-3 px-4 text-[#e5e2e3]/60 hover:text-[#e5e2e3] hover:bg-[#201f20] transition-all duration-300 font-headline active:scale-[0.98]" href="#">
+<span class="material-symbols-outlined" data-icon="update">update</span>
+<span class="text-sm">Update</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center space-x-3 p-3 rounded-xl bg-surface-container-low transition-colors hover:bg-surface-container">
+<img alt="User profile" class="w-8 h-8 rounded-full border border-outline-variant/30" data-alt="Close-up portrait of a professional male photographer in a studio setting with soft rim lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBNHiHUW7NCYlkk2KZRFES-kA2ZKM6B9XDjxIn20zHqHFaAmr8ycA6MFPs1GI9TbYCdXao0hE6osoGQgAQwZCrpKQOOukf1klVK6PvkXEGT8VzuCQUcAybT6Ik_uDYDDvpy3XmzNoPIfmvRvQd-U1sEvhXm_KQt-PQvJ7rmJaMM3TGUqCX-yHlfJpc7Qs22A6TuSweiybAkqtoiW7L6rlf3BtcEXzXZ1RQ5TyXD2uDUt_I9FhSbzrcpwN-z9MyjI_YVcnTdgx_ljn8"/>
+<div class="overflow-hidden">
+<p class="text-xs font-bold text-on-surface truncate">Marcus Chen</p>
+<p class="text-[10px] text-on-surface-variant">Pro Plan</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- TopNavBar (Execution from JSON) -->
+<header class="h-16 fixed top-0 right-0 left-64 z-40 flex items-center justify-between px-8 w-full bg-[#131314]/60 backdrop-blur-md no-border bg-gradient-to-b from-[#131314] to-transparent">
+<div class="flex items-center space-x-4">
+<span class="text-on-surface/40 text-xs font-label">System / Dashboard / <span class="text-on-surface">Status</span></span>
+</div>
+<div class="flex items-center space-x-6">
+<div class="relative group">
+<input class="bg-surface-container-lowest border-none rounded-full py-1.5 px-4 text-xs w-48 focus:ring-1 focus:ring-secondary-fixed transition-all text-on-surface-variant placeholder:text-on-surface-variant/30" placeholder="Search parameters..." type="text"/>
+<span class="material-symbols-outlined absolute right-3 top-1.5 text-sm text-on-surface-variant/40" data-icon="search">search</span>
+</div>
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-secondary-fixed transition-colors">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-secondary-fixed transition-colors">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-24 pb-12 px-12 min-h-screen">
+<!-- Hero Section: Connection Status -->
+<section class="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-secondary-container/10 border border-secondary-container/20 mb-4 neon-glow-secondary">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-fixed opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary-fixed"></span>
+</span>
+<span class="text-[10px] font-bold text-secondary-fixed tracking-widest uppercase">Connected to Agent</span>
+</div>
+<h2 class="text-4xl font-extrabold font-headline tracking-tight text-on-surface mb-2">Workspace Health</h2>
+<p class="text-on-surface-variant max-w-md">Your Lightroom catalogs are currently being synchronized across 4 distributed nodes.</p>
+</div>
+<!-- Quick Actions -->
+<div class="flex items-center space-x-3">
+<button class="flex items-center space-x-2 bg-gradient-to-br from-primary-container to-primary text-on-primary font-bold py-2.5 px-6 rounded-xl text-sm shadow-[0_0_15px_rgba(123,44,191,0.4)] hover:scale-[1.02] transition-transform">
+<span class="material-symbols-outlined text-sm" data-icon="sync">sync</span>
+<span>Sync Now</span>
+</button>
+<button class="flex items-center space-x-2 bg-surface-container-high border border-outline-variant/20 text-on-surface font-semibold py-2.5 px-6 rounded-xl text-sm hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="pause">pause</span>
+<span>Pause</span>
+</button>
+<button class="flex items-center space-x-2 bg-surface-container-high border border-outline-variant/20 text-on-surface font-semibold py-2.5 px-6 rounded-xl text-sm hover:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="play_arrow">play_arrow</span>
+<span>Resume</span>
+</button>
+</div>
+</section>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Main Sync Progress Card -->
+<div class="col-span-12 lg:col-span-8 glass-panel rounded-3xl p-8 border border-outline-variant/10 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] rounded-full -mr-20 -mt-20"></div>
+<div class="flex justify-between items-start mb-12">
+<div>
+<h3 class="text-xl font-bold font-headline mb-1">Sync in Progress</h3>
+<p class="text-sm text-on-surface-variant">Uploading RAW files to Cloud Cluster B</p>
+</div>
+<div class="text-right">
+<span class="text-3xl font-extrabold font-headline text-secondary-fixed">64%</span>
+<p class="text-[10px] text-on-surface-variant font-label tracking-widest">EST. 4 MIN REMAINING</p>
+</div>
+</div>
+<!-- Custom Sync Glow Progress Bar -->
+<div class="relative w-full h-3 bg-surface-container-highest rounded-full overflow-hidden mb-8">
+<div class="absolute top-0 left-0 h-full w-[64%] bg-gradient-to-r from-primary-container to-secondary-container rounded-full shadow-[0_0_15px_rgba(0,245,255,0.3)]">
+<div class="sync-comet absolute top-0 left-0 h-full w-20"></div>
+</div>
+</div>
+<div class="grid grid-cols-3 gap-8">
+<div>
+<p class="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mb-1">Files Sent</p>
+<p class="text-lg font-bold text-on-surface">1,402 / 2,189</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mb-1">Transfer Rate</p>
+<p class="text-lg font-bold text-on-surface">84.2 MB/s</p>
+</div>
+<div>
+<p class="text-[10px] text-on-surface-variant font-label uppercase tracking-widest mb-1">Active Threads</p>
+<p class="text-lg font-bold text-on-surface">12 Parallel</p>
+</div>
+</div>
+</div>
+<!-- Last Sync Time Card -->
+<div class="col-span-12 lg:col-span-4 glass-panel rounded-3xl p-8 border border-outline-variant/10 flex flex-col justify-between">
+<div>
+<div class="w-12 h-12 rounded-2xl bg-primary-container/20 flex items-center justify-center mb-6">
+<span class="material-symbols-outlined text-primary" data-icon="schedule">schedule</span>
+</div>
+<h3 class="text-lg font-bold font-headline mb-2">Last Sync Time</h3>
+<p class="text-3xl font-extrabold font-headline text-on-surface">14:02 <span class="text-sm font-normal text-on-surface-variant">Today</span></p>
+<p class="text-sm text-on-surface-variant mt-2">Successful backup of 'Portfolio_2024' catalog to 3 geographic regions.</p>
+</div>
+<div class="mt-8 pt-6 border-t border-outline-variant/10">
+<a class="text-secondary-fixed text-sm font-semibold flex items-center hover:underline" href="#">
+                        View full history
+                        <span class="material-symbols-outlined text-sm ml-1" data-icon="arrow_forward">arrow_forward</span>
+</a>
+</div>
+</div>
+<!-- Stats & Network Cards -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-low rounded-3xl p-6 border border-outline-variant/5">
+<div class="flex items-center space-x-4 mb-6">
+<div class="w-10 h-10 rounded-xl bg-secondary-container/10 flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary-fixed" data-icon="lan">lan</span>
+</div>
+<h4 class="font-bold text-on-surface">Network Topology</h4>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Local Gateway</span>
+<span class="text-secondary-fixed font-mono">192.168.1.1</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Cloud Relay</span>
+<span class="text-primary font-mono">us-east-cluster</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-on-surface-variant">Latency</span>
+<span class="text-on-surface font-mono">12ms</span>
+</div>
+</div>
+</div>
+<div class="col-span-12 lg:col-span-8 bg-surface-container-low rounded-3xl p-6 border border-outline-variant/5">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-bold text-on-surface">Recent Asset Activity</h4>
+<span class="text-[10px] bg-primary-container/20 text-primary-fixed px-2 py-0.5 rounded uppercase font-bold tracking-tighter">Live Monitor</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left text-sm">
+<thead>
+<tr class="text-on-surface-variant/50 text-[10px] uppercase tracking-widest border-b border-outline-variant/10">
+<th class="pb-3 font-semibold">Asset Name</th>
+<th class="pb-3 font-semibold">Type</th>
+<th class="pb-3 font-semibold text-right">Size</th>
+<th class="pb-3 font-semibold text-right">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/5">
+<tr class="group hover:bg-surface-container/50 transition-colors">
+<td class="py-3 text-on-surface font-medium">DSC0192_wedding_raw.arw</td>
+<td class="py-3 text-on-surface-variant">SONY RAW</td>
+<td class="py-3 text-right text-on-surface-variant">42.4 MB</td>
+<td class="py-3 text-right text-secondary-fixed">Synced</td>
+</tr>
+<tr class="group hover:bg-surface-container/50 transition-colors">
+<td class="py-3 text-on-surface font-medium">Iceland_Drone_04.dng</td>
+<td class="py-3 text-on-surface-variant">DNG</td>
+<td class="py-3 text-right text-on-surface-variant">28.1 MB</td>
+<td class="py-3 text-right text-primary italic">Syncing...</td>
+</tr>
+<tr class="group hover:bg-surface-container/50 transition-colors">
+<td class="py-3 text-on-surface font-medium">Portrait_Studio_B.cat</td>
+<td class="py-3 text-on-surface-variant">Catalog</td>
+<td class="py-3 text-right text-on-surface-variant">1.2 GB</td>
+<td class="py-3 text-right text-secondary-fixed">Synced</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Decorative Background Elements -->
+<div class="fixed bottom-0 right-0 w-[500px] h-[500px] bg-primary-container/10 blur-[150px] -z-10 rounded-full opacity-30 pointer-events-none"></div>
+<div class="fixed top-0 left-0 w-[300px] h-[300px] bg-secondary-container/5 blur-[120px] -z-10 rounded-full opacity-20 pointer-events-none"></div>
+</main>
+</body></html>
