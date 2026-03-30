@@ -562,18 +562,12 @@ $btnClose.Height = 36
 $btnClose.Location = New-Object System.Drawing.Point(799, 80)
 $form.Controls.Add($btnClose)
 
-$chkAutoSync = New-Object System.Windows.Forms.CheckBox
-$chkAutoSync.Text = 'Auto Sync'
-$chkAutoSync.AutoSize = $true
-$chkAutoSync.Location = New-Object System.Drawing.Point(873, 89)
-$form.Controls.Add($chkAutoSync)
-
-$btnSaveAutoSync = New-Object System.Windows.Forms.Button
-$btnSaveAutoSync.Text = 'Save'
-$btnSaveAutoSync.Width = 45
-$btnSaveAutoSync.Height = 30
-$btnSaveAutoSync.Location = New-Object System.Drawing.Point(925, 84)
-$form.Controls.Add($btnSaveAutoSync)
+$btnSaveConfig = New-Object System.Windows.Forms.Button
+$btnSaveConfig.Text = 'Save Config'
+$btnSaveConfig.Width = 95
+$btnSaveConfig.Height = 30
+$btnSaveConfig.Location = New-Object System.Drawing.Point(870, 84)
+$form.Controls.Add($btnSaveConfig)
 
 $btnResumeSync.Enabled = $false
 
@@ -622,12 +616,10 @@ $lblBackupRootTitle.AutoSize = $true
 $lblBackupRootTitle.Location = New-Object System.Drawing.Point(300, 132)
 $form.Controls.Add($lblBackupRootTitle)
 
-$lblBackupRootValue = New-Object System.Windows.Forms.Label
-$lblBackupRootValue.Text = '-'
-$lblBackupRootValue.AutoSize = $true
-$lblBackupRootValue.MaximumSize = New-Object System.Drawing.Size(640, 0)
-$lblBackupRootValue.Location = New-Object System.Drawing.Point(390, 132)
-$form.Controls.Add($lblBackupRootValue)
+$txtBackupFolder = New-Object System.Windows.Forms.TextBox
+$txtBackupFolder.Location = New-Object System.Drawing.Point(390, 128)
+$txtBackupFolder.Width = 572
+$form.Controls.Add($txtBackupFolder)
 
 $lblCatalogTitle = New-Object System.Windows.Forms.Label
 $lblCatalogTitle.Text = 'Catalog Path:'
@@ -635,41 +627,132 @@ $lblCatalogTitle.AutoSize = $true
 $lblCatalogTitle.Location = New-Object System.Drawing.Point(300, 156)
 $form.Controls.Add($lblCatalogTitle)
 
-$lblCatalogValue = New-Object System.Windows.Forms.Label
-$lblCatalogValue.Text = '-'
-$lblCatalogValue.AutoSize = $true
-$lblCatalogValue.MaximumSize = New-Object System.Drawing.Size(640, 0)
-$lblCatalogValue.Location = New-Object System.Drawing.Point(390, 156)
-$form.Controls.Add($lblCatalogValue)
+$txtCatalogPath = New-Object System.Windows.Forms.TextBox
+$txtCatalogPath.Location = New-Object System.Drawing.Point(390, 152)
+$txtCatalogPath.Width = 572
+$form.Controls.Add($txtCatalogPath)
+
+$chkStartWithWindows = New-Object System.Windows.Forms.CheckBox
+$chkStartWithWindows.Text = 'Start with Windows'
+$chkStartWithWindows.AutoSize = $true
+$chkStartWithWindows.Location = New-Object System.Drawing.Point(390, 181)
+$form.Controls.Add($chkStartWithWindows)
+
+$chkStartMinimized = New-Object System.Windows.Forms.CheckBox
+$chkStartMinimized.Text = 'Start Minimized'
+$chkStartMinimized.AutoSize = $true
+$chkStartMinimized.Location = New-Object System.Drawing.Point(526, 181)
+$form.Controls.Add($chkStartMinimized)
+
+$chkMinimizeToTray = New-Object System.Windows.Forms.CheckBox
+$chkMinimizeToTray.Text = 'Minimize To Tray'
+$chkMinimizeToTray.AutoSize = $true
+$chkMinimizeToTray.Location = New-Object System.Drawing.Point(646, 181)
+$form.Controls.Add($chkMinimizeToTray)
+
+$chkAutoSync = New-Object System.Windows.Forms.CheckBox
+$chkAutoSync.Text = 'Auto Sync'
+$chkAutoSync.AutoSize = $true
+$chkAutoSync.Location = New-Object System.Drawing.Point(766, 181)
+$form.Controls.Add($chkAutoSync)
+
+$chkPresetSyncEnabled = New-Object System.Windows.Forms.CheckBox
+$chkPresetSyncEnabled.Text = 'Preset Sync'
+$chkPresetSyncEnabled.AutoSize = $true
+$chkPresetSyncEnabled.Location = New-Object System.Drawing.Point(850, 181)
+$form.Controls.Add($chkPresetSyncEnabled)
+
+$lblHeartbeatTitle = New-Object System.Windows.Forms.Label
+$lblHeartbeatTitle.Text = 'Heartbeat:'
+$lblHeartbeatTitle.AutoSize = $true
+$lblHeartbeatTitle.Location = New-Object System.Drawing.Point(390, 206)
+$form.Controls.Add($lblHeartbeatTitle)
+
+$numHeartbeat = New-Object System.Windows.Forms.NumericUpDown
+$numHeartbeat.Minimum = 1
+$numHeartbeat.Maximum = 3600
+$numHeartbeat.Location = New-Object System.Drawing.Point(460, 202)
+$numHeartbeat.Width = 56
+$form.Controls.Add($numHeartbeat)
+
+$lblCheckIntervalTitle = New-Object System.Windows.Forms.Label
+$lblCheckIntervalTitle.Text = 'Check:'
+$lblCheckIntervalTitle.AutoSize = $true
+$lblCheckIntervalTitle.Location = New-Object System.Drawing.Point(526, 206)
+$form.Controls.Add($lblCheckIntervalTitle)
+
+$numCheckInterval = New-Object System.Windows.Forms.NumericUpDown
+$numCheckInterval.Minimum = 1
+$numCheckInterval.Maximum = 3600
+$numCheckInterval.Location = New-Object System.Drawing.Point(575, 202)
+$numCheckInterval.Width = 56
+$form.Controls.Add($numCheckInterval)
+
+$lblLockTimeoutTitle = New-Object System.Windows.Forms.Label
+$lblLockTimeoutTitle.Text = 'Lock Timeout:'
+$lblLockTimeoutTitle.AutoSize = $true
+$lblLockTimeoutTitle.Location = New-Object System.Drawing.Point(646, 206)
+$form.Controls.Add($lblLockTimeoutTitle)
+
+$numLockTimeout = New-Object System.Windows.Forms.NumericUpDown
+$numLockTimeout.Minimum = 1
+$numLockTimeout.Maximum = 7200
+$numLockTimeout.Location = New-Object System.Drawing.Point(728, 202)
+$numLockTimeout.Width = 56
+$form.Controls.Add($numLockTimeout)
+
+$lblMaxBackupsTitle = New-Object System.Windows.Forms.Label
+$lblMaxBackupsTitle.Text = 'Max Backups:'
+$lblMaxBackupsTitle.AutoSize = $true
+$lblMaxBackupsTitle.Location = New-Object System.Drawing.Point(796, 206)
+$form.Controls.Add($lblMaxBackupsTitle)
+
+$numMaxBackups = New-Object System.Windows.Forms.NumericUpDown
+$numMaxBackups.Minimum = 1
+$numMaxBackups.Maximum = 500
+$numMaxBackups.Location = New-Object System.Drawing.Point(884, 202)
+$numMaxBackups.Width = 78
+$form.Controls.Add($numMaxBackups)
+
+$lblPresetCategoriesTitle = New-Object System.Windows.Forms.Label
+$lblPresetCategoriesTitle.Text = 'Preset Categories:'
+$lblPresetCategoriesTitle.AutoSize = $true
+$lblPresetCategoriesTitle.Location = New-Object System.Drawing.Point(300, 231)
+$form.Controls.Add($lblPresetCategoriesTitle)
+
+$txtPresetCategories = New-Object System.Windows.Forms.TextBox
+$txtPresetCategories.Location = New-Object System.Drawing.Point(410, 227)
+$txtPresetCategories.Width = 552
+$form.Controls.Add($txtPresetCategories)
 
 $lblSyncPathTitle = New-Object System.Windows.Forms.Label
 $lblSyncPathTitle.Text = 'Selected Zip:'
 $lblSyncPathTitle.AutoSize = $true
-$lblSyncPathTitle.Location = New-Object System.Drawing.Point(300, 180)
+$lblSyncPathTitle.Location = New-Object System.Drawing.Point(300, 257)
 $form.Controls.Add($lblSyncPathTitle)
 
 $txtSyncPath = New-Object System.Windows.Forms.TextBox
-$txtSyncPath.Location = New-Object System.Drawing.Point(390, 176)
-$txtSyncPath.Width = 450
+$txtSyncPath.Location = New-Object System.Drawing.Point(390, 253)
+$txtSyncPath.Width = 462
 $form.Controls.Add($txtSyncPath)
 
 $btnSyncSelected = New-Object System.Windows.Forms.Button
 $btnSyncSelected.Text = 'Sync Selected'
 $btnSyncSelected.Width = 110
 $btnSyncSelected.Height = 28
-$btnSyncSelected.Location = New-Object System.Drawing.Point(850, 174)
+$btnSyncSelected.Location = New-Object System.Drawing.Point(854, 251)
 $form.Controls.Add($btnSyncSelected)
 
 $lstBackups = New-Object System.Windows.Forms.ListBox
 $lstBackups.Font = New-Object System.Drawing.Font('Consolas', 8.5)
-$lstBackups.Location = New-Object System.Drawing.Point(22, 214)
-$lstBackups.Size = New-Object System.Drawing.Size(440, 430)
+$lstBackups.Location = New-Object System.Drawing.Point(22, 292)
+$lstBackups.Size = New-Object System.Drawing.Size(440, 352)
 $form.Controls.Add($lstBackups)
 
 $lblOutputTitle = New-Object System.Windows.Forms.Label
 $lblOutputTitle.Text = 'Action Output'
 $lblOutputTitle.AutoSize = $true
-$lblOutputTitle.Location = New-Object System.Drawing.Point(474, 214)
+$lblOutputTitle.Location = New-Object System.Drawing.Point(474, 292)
 $form.Controls.Add($lblOutputTitle)
 
 $txtOutput = New-Object System.Windows.Forms.TextBox
@@ -677,20 +760,20 @@ $txtOutput.Multiline = $true
 $txtOutput.ReadOnly = $true
 $txtOutput.ScrollBars = 'Vertical'
 $txtOutput.Font = New-Object System.Drawing.Font('Consolas', 9)
-$txtOutput.Location = New-Object System.Drawing.Point(474, 232)
-$txtOutput.Size = New-Object System.Drawing.Size(488, 120)
+$txtOutput.Location = New-Object System.Drawing.Point(474, 310)
+$txtOutput.Size = New-Object System.Drawing.Size(488, 110)
 $form.Controls.Add($txtOutput)
 
 $lblLogsTitle = New-Object System.Windows.Forms.Label
 $lblLogsTitle.Text = 'Agent Logs (subscribe_logs)'
 $lblLogsTitle.AutoSize = $true
-$lblLogsTitle.Location = New-Object System.Drawing.Point(474, 360)
+$lblLogsTitle.Location = New-Object System.Drawing.Point(474, 428)
 $form.Controls.Add($lblLogsTitle)
 
 $lblLogLevel = New-Object System.Windows.Forms.Label
 $lblLogLevel.Text = 'Level:'
 $lblLogLevel.AutoSize = $true
-$lblLogLevel.Location = New-Object System.Drawing.Point(760, 360)
+$lblLogLevel.Location = New-Object System.Drawing.Point(760, 428)
 $form.Controls.Add($lblLogLevel)
 
 $cmbLogLevel = New-Object System.Windows.Forms.ComboBox
@@ -701,7 +784,7 @@ $cmbLogLevel.DropDownStyle = 'DropDownList'
 [void]$cmbLogLevel.Items.Add('ERROR')
 [void]$cmbLogLevel.Items.Add('DEBUG')
 $cmbLogLevel.SelectedIndex = 0
-$cmbLogLevel.Location = New-Object System.Drawing.Point(805, 356)
+$cmbLogLevel.Location = New-Object System.Drawing.Point(805, 424)
 $cmbLogLevel.Width = 90
 $form.Controls.Add($cmbLogLevel)
 
@@ -709,7 +792,7 @@ $btnClearLogs = New-Object System.Windows.Forms.Button
 $btnClearLogs.Text = 'Clear'
 $btnClearLogs.Width = 60
 $btnClearLogs.Height = 26
-$btnClearLogs.Location = New-Object System.Drawing.Point(902, 354)
+$btnClearLogs.Location = New-Object System.Drawing.Point(902, 422)
 $form.Controls.Add($btnClearLogs)
 
 $txtLogs = New-Object System.Windows.Forms.TextBox
@@ -717,8 +800,8 @@ $txtLogs.Multiline = $true
 $txtLogs.ReadOnly = $true
 $txtLogs.ScrollBars = 'Vertical'
 $txtLogs.Font = New-Object System.Drawing.Font('Consolas', 8.8)
-$txtLogs.Location = New-Object System.Drawing.Point(474, 378)
-$txtLogs.Size = New-Object System.Drawing.Size(488, 266)
+$txtLogs.Location = New-Object System.Drawing.Point(474, 446)
+$txtLogs.Size = New-Object System.Drawing.Size(488, 198)
 $form.Controls.Add($txtLogs)
 
 $script:lastLogID = 0
@@ -735,18 +818,64 @@ function Set-Reachability([bool]$ok) {
 
 function Render-Config($cfg) {
     if (-not $cfg) { return }
+    if ($null -ne $cfg.backup_folder) {
+        $txtBackupFolder.Text = [string]$cfg.backup_folder
+    } else {
+        $txtBackupFolder.Text = ''
+    }
+    if ($null -ne $cfg.catalog_path) {
+        $txtCatalogPath.Text = [string]$cfg.catalog_path
+    } else {
+        $txtCatalogPath.Text = ''
+    }
+    if ($null -ne $cfg.start_with_windows) {
+        $chkStartWithWindows.Checked = [bool]$cfg.start_with_windows
+    }
+    if ($null -ne $cfg.start_minimized) {
+        $chkStartMinimized.Checked = [bool]$cfg.start_minimized
+    }
+    if ($null -ne $cfg.minimize_to_tray) {
+        $chkMinimizeToTray.Checked = [bool]$cfg.minimize_to_tray
+    }
     if ($null -ne $cfg.auto_sync) {
         $chkAutoSync.Checked = [bool]$cfg.auto_sync
     }
-    if ($cfg.backup_folder) {
-        $lblBackupRootValue.Text = [string]$cfg.backup_folder
-    } else {
-        $lblBackupRootValue.Text = '-'
+    if ($null -ne $cfg.preset_sync_enabled) {
+        $chkPresetSyncEnabled.Checked = [bool]$cfg.preset_sync_enabled
     }
-    if ($cfg.catalog_path) {
-        $lblCatalogValue.Text = [string]$cfg.catalog_path
+    if ($cfg.preset_categories) {
+        if ($cfg.preset_categories -is [System.Array]) {
+            $txtPresetCategories.Text = [string]::Join(', ', [string[]]$cfg.preset_categories)
+        } else {
+            $txtPresetCategories.Text = [string]$cfg.preset_categories
+        }
     } else {
-        $lblCatalogValue.Text = '-'
+        $txtPresetCategories.Text = ''
+    }
+
+    if ($null -ne $cfg.heartbeat_interval) {
+        $hb = [int]$cfg.heartbeat_interval
+        if ($hb -lt [int]$numHeartbeat.Minimum) { $hb = [int]$numHeartbeat.Minimum }
+        if ($hb -gt [int]$numHeartbeat.Maximum) { $hb = [int]$numHeartbeat.Maximum }
+        $numHeartbeat.Value = [decimal]$hb
+    }
+    if ($null -ne $cfg.check_interval) {
+        $ci = [int]$cfg.check_interval
+        if ($ci -lt [int]$numCheckInterval.Minimum) { $ci = [int]$numCheckInterval.Minimum }
+        if ($ci -gt [int]$numCheckInterval.Maximum) { $ci = [int]$numCheckInterval.Maximum }
+        $numCheckInterval.Value = [decimal]$ci
+    }
+    if ($null -ne $cfg.lock_timeout) {
+        $lt = [int]$cfg.lock_timeout
+        if ($lt -lt [int]$numLockTimeout.Minimum) { $lt = [int]$numLockTimeout.Minimum }
+        if ($lt -gt [int]$numLockTimeout.Maximum) { $lt = [int]$numLockTimeout.Maximum }
+        $numLockTimeout.Value = [decimal]$lt
+    }
+    if ($null -ne $cfg.max_catalog_backups) {
+        $mb = [int]$cfg.max_catalog_backups
+        if ($mb -lt [int]$numMaxBackups.Minimum) { $mb = [int]$numMaxBackups.Minimum }
+        if ($mb -gt [int]$numMaxBackups.Maximum) { $mb = [int]$numMaxBackups.Maximum }
+        $numMaxBackups.Value = [decimal]$mb
     }
 }
 
@@ -824,7 +953,15 @@ function Invoke-Action([string]$action, [string]$payload = '', [bool]$renderRaw 
                     $btnPauseSync.Enabled = -not $paused
                     $btnResumeSync.Enabled = $paused
                 }
-                if ($null -ne $obj.data.auto_sync -or $obj.data.backup_folder -or $obj.data.catalog_path) {
+                if (
+                    $null -ne $obj.data.auto_sync -or
+                    $null -ne $obj.data.backup_folder -or
+                    $null -ne $obj.data.catalog_path -or
+                    $null -ne $obj.data.heartbeat_interval -or
+                    $null -ne $obj.data.check_interval -or
+                    $null -ne $obj.data.lock_timeout -or
+                    $null -ne $obj.data.max_catalog_backups
+                ) {
                     Render-Config $obj.data
                 }
                 if ($obj.data -is [System.Array] -and $obj.data.Count -gt 0 -and $obj.data[0].path) {
@@ -855,6 +992,25 @@ function Invoke-Action([string]$action, [string]$payload = '', [bool]$renderRaw 
     }
 }
 
+function Parse-CategoryList([string]$raw) {
+    $seen = @{}
+    $list = New-Object System.Collections.Generic.List[string]
+    if ([string]::IsNullOrWhiteSpace($raw)) {
+        return ,$list.ToArray()
+    }
+    foreach ($part in ($raw -split ',')) {
+        $name = [string]$part
+        if ($null -eq $name) { continue }
+        $name = $name.Trim()
+        if ($name -eq '') { continue }
+        $key = $name.ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { continue }
+        $seen[$key] = $true
+        $list.Add($name)
+    }
+    return ,$list.ToArray()
+}
+
 $btnPing.Add_Click({ Invoke-Action 'ping' })
 $btnStatus.Add_Click({
     Invoke-Action 'status'
@@ -880,12 +1036,52 @@ $btnResumeSync.Add_Click({
     Invoke-Action 'status'
     Pull-Logs
 })
-$btnSaveAutoSync.Add_Click({
+$btnSaveConfig.Add_Click({
+    $heartbeat = [int]$numHeartbeat.Value
+    $checkInterval = [int]$numCheckInterval.Value
+    $lockTimeout = [int]$numLockTimeout.Value
+    $maxBackups = [int]$numMaxBackups.Value
+    if ($lockTimeout -lt $heartbeat) {
+        [System.Windows.Forms.MessageBox]::Show(
+            'Lock Timeout nên lớn hơn hoặc bằng Heartbeat.',
+            'Validation',
+            'OK',
+            'Warning'
+        ) | Out-Null
+        return
+    }
+
+    $categories = Parse-CategoryList ([string]$txtPresetCategories.Text)
+    if ($chkPresetSyncEnabled.Checked -and $categories.Count -eq 0) {
+        [System.Windows.Forms.MessageBox]::Show(
+            'Preset Sync đang bật, cần ít nhất 1 category.',
+            'Validation',
+            'OK',
+            'Warning'
+        ) | Out-Null
+        return
+    }
+
     $payloadObj = @{
+        backup_folder = [string]$txtBackupFolder.Text.Trim()
+        catalog_path = [string]$txtCatalogPath.Text.Trim()
+        start_with_windows = [bool]$chkStartWithWindows.Checked
+        start_minimized = [bool]$chkStartMinimized.Checked
+        minimize_to_tray = [bool]$chkMinimizeToTray.Checked
         auto_sync = [bool]$chkAutoSync.Checked
+        heartbeat_interval = $heartbeat
+        check_interval = $checkInterval
+        lock_timeout = $lockTimeout
+        max_catalog_backups = $maxBackups
+        preset_sync_enabled = [bool]$chkPresetSyncEnabled.Checked
+        preset_categories = $categories
     }
     $payloadJson = $payloadObj | ConvertTo-Json -Compress
     Invoke-Action 'save-config' $payloadJson
+    Start-Sleep -Milliseconds 120
+    Invoke-Action 'status' '' $false
+    Invoke-Action 'get-config' '' $false
+    Pull-Logs
 })
 $btnSyncSelected.Add_Click({
     $zipPath = [string]$txtSyncPath.Text

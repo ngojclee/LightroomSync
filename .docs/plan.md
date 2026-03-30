@@ -32,6 +32,7 @@
 - Temporary Windows Forms GUI harness now supports config read/save (auto-sync toggle), backup listing, and sync-selected backup actions.
 - Sync worker pause/resume control is now wired end-to-end via IPC (`pause_sync`/`resume_sync`) and exposed in the temporary GUI harness for manual state testing.
 - Agent now exposes `subscribe_logs` with in-memory cursor-based buffering (`after_id`, `limit`) and level filtering (`INFO/WARN/ERROR/DEBUG`); the temporary GUI harness now polls/renders logs in a dedicated panel with level selector and capped display buffer.
+- Temporary GUI harness now includes a full settings form (paths, startup flags, sync intervals, preset options) with client-side validation and full `save_config` payload binding, plus live status/backup/log polling exclusively through Agent IPC.
 - Agent now has a tray bootstrap module (`internal/tray`) with Windows NotifyIcon host, menu actions (`Open UI`, `Sync Now`, `Exit Agent`), and status label updates via shared status file.
 - Lock manager now tracks internal `session_id` and monotonic `epoch` metadata for heartbeat sequencing while preserving legacy on-disk lock wire format (`STATUS|MACHINE|TIMESTAMP`).
 - Phase 0.2 architecture spike automation is now added via `scripts/phase0_2_architecture_spike.ps1`, with runbook in `.docs/phase0-2-architecture-spike.md` to validate tray bootstrap + UI focus + IPC roundtrip.
