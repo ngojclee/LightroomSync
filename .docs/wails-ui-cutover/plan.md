@@ -2,7 +2,7 @@
 
 > Scope: Chuyển `LightroomSyncUI.exe` từ temporary Windows Forms harness sang Wails UI thực thụ.
 >  
-> Status: In Progress (planning complete, implementation pending)
+> Status: In Progress (Wave 1/2 done in code, Wave 3/4 baseline done in code, runtime verification + packaging cutover pending)
 
 ## Goal
 
@@ -14,7 +14,7 @@
 
 - Backend IPC + business flow đã sẵn sàng; thiếu lớp Wails runtime và frontend thật.
 - `cmd/ui/main.go` đang chứa cả CLI actions lẫn temporary Windows Forms harness nên cần tách để tái sử dụng.
-- `frontend/` hiện chưa có code, nên milestone M3/M4 là phần khối lượng chính.
+- `frontend/` now has the Wave 3/4 baseline shell, but still needs real Wails runtime verification in this environment plus build/installer cutover steps.
 - Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
 - Wave 3 frontend shell contract and tab-command mapping are now explicitly documented for implementation alignment.
 - Wave 1 scaffold implementation is in place (runtime switch + frontend scaffold), with remaining unblock on Wails CLI preflight/module availability.

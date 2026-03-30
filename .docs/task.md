@@ -194,8 +194,9 @@
 Status note: runtime switch + Wails/frontend scaffold implemented; remaining blocker is Wails CLI preflight (`Unable to find Wails in go.mod`) in the current offline environment.
 - [x] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [x] Add Wave 2 parity automation (`scripts/e2e_ui_command_parity.ps1`) + evidence output under `build/e2e`
-- [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
-- [ ] Wire polling/event flows and robust in-flight/error handling
+- [x] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
+- [x] Wire polling/event flows and robust in-flight/error handling
+Status note: Wave 3 + Wave 4 baseline is now implemented in `frontend/src` with a full tab shell, Wails/global bridge fallback, visibility-aware polling (`status` + `subscribe-logs`), and in-flight guards. Remaining work is runtime verification in real Wails window once npm/wails network dependency is available.
 - [ ] Integrate Wails artifact into build/installer pipeline
 - [ ] Execute Wails validation matrix and switch default UI runtime
 

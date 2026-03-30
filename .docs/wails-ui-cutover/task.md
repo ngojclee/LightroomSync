@@ -4,7 +4,7 @@
 >  
 > Target: Real Wails GUI as default UI runtime
 >  
-> Current Focus: Wave 3 (M3) Frontend Shell (Wave 2 complete; Wave 1 verification partially blocked by environment)
+> Current Focus: Wave 4 (M4) Data/State hardening (Wave 3 baseline delivered; Wave 1 verification partially blocked by environment)
 >  
 > Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 >  
@@ -41,21 +41,23 @@ Status note: refactor is merged in code; CLI command execution now routes throug
 
 ## M3. Frontend Shell
 
-- [ ] Implement app layout + tab navigation
-- [ ] Implement Status tab (state summary + quick actions)
-- [ ] Implement Settings tab (full config editor + validation)
-- [ ] Implement Backups tab (list + sync selected)
-- [ ] Implement Logs tab (level filter + live tail)
-- [ ] Implement Update tab (check + download)
-- [ ] Freeze tab-to-command contract map for Wave 3/4 implementation
-- [ ] Verification: all tabs render in offline mode (no crash)
+- [x] Implement app layout + tab navigation
+- [x] Implement Status tab (state summary + quick actions)
+- [x] Implement Settings tab (full config editor + validation)
+- [x] Implement Backups tab (list + sync selected)
+- [x] Implement Logs tab (level filter + live tail)
+- [x] Implement Update tab (check + download)
+- [x] Freeze tab-to-command contract map for Wave 3/4 implementation
+- [x] Verification: all tabs render in offline mode (no crash)
+Status note: `frontend/src/App.ts` now renders all 5 tabs through one shell with shared banner/connection surface and offline-safe bridge fallback (`agent_offline`) so the window remains usable when IPC is unavailable.
 
 ## M4. Data/State Flow
 
-- [ ] Poll `get_status` and render connection state
-- [ ] Poll `subscribe_logs` with cursor and cap buffer size
-- [ ] Handle command loading/error states (disable buttons during in-flight calls)
+- [x] Poll `get_status` and render connection state
+- [x] Poll `subscribe_logs` with cursor and cap buffer size
+- [x] Handle command loading/error states (disable buttons during in-flight calls)
 - [ ] Verification: reconnect behavior works after Agent restart
+Status note: polling + in-flight guards are now implemented in the frontend shell (`refresh:status`, `refresh:logs`, mutation guards, visibility-aware timers). Runtime reconnect validation with real Wails window is pending because npm/wails preflight is still blocked in this environment.
 
 ## M5. Build/Installer
 

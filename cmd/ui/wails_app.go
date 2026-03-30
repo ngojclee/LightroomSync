@@ -33,3 +33,7 @@ func (a *WailsApp) AppInfo() map[string]string {
 func (a *WailsApp) Ping() uiapi.ActionEnvelope {
 	return a.service.Ping()
 }
+
+func (a *WailsApp) ExecuteAction(action, payload string) uiapi.ActionEnvelope {
+	return a.service.ExecuteAction(action, payload)
+}
