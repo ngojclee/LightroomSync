@@ -1,11 +1,14 @@
 VERSION ?= 2.0.0.0
 
-.PHONY: all build agent ui test clean
+.PHONY: all build installer agent ui test clean
 
 all: build
 
 build:
 	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)"
+
+installer:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1 -Version "$(VERSION)"
 
 agent:
 	go build -ldflags "-X main.Version=$(VERSION)" -o build/bin/LightroomSyncAgent.exe ./cmd/agent

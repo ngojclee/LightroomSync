@@ -190,9 +190,9 @@
 
 ### 7.2 Installer
 
-- [ ] Adapt Inno Setup for two-process deployment
-- [ ] Register startup for Agent only
-- [ ] Ensure upgrade path kills old processes safely
+- [x] Adapt Inno Setup for two-process deployment
+- [x] Register startup for Agent only
+- [x] Ensure upgrade path kills old processes safely
 
 ### 7.3 Release
 

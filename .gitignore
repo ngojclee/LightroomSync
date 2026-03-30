@@ -12,6 +12,7 @@ go.work.sum
 # Build output
 /build/bin/
 /build/release/
+/build/installer/
 /dist/
 
 # Frontend
