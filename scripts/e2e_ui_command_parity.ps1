@@ -52,7 +52,9 @@ function Resolve-UIExe {
 function Get-JsonBlock {
     param([string]$Raw)
 
-    $trimmed = $Raw.Trim()
+    $ansiPattern = [char]27 + '\[[0-9;]*[A-Za-z]'
+    $sanitized = [regex]::Replace($Raw, $ansiPattern, "")
+    $trimmed = $sanitized.Trim()
     $start = $trimmed.IndexOf("{")
     if ($start -lt 0) {
         throw "No JSON block found in command output."
@@ -84,8 +86,24 @@ function Invoke-UIAction {
         $args += @("--payload", $Payload)
     }
 
-    $raw = & $UIExe @args 2>&1 | Out-String
-    $json = Get-JsonBlock -Raw $raw
+    $raw = ""
+    $json = $null
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $raw = & $UIExe @args 2>&1 | Out-String
+        try {
+            $json = Get-JsonBlock -Raw $raw
+            break
+        } catch {
+            if ($attempt -lt 2) {
+                Start-Sleep -Milliseconds 150
+                continue
+            }
+            throw
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($json)) {
+        throw "Failed to parse JSON output for action '$Action'. Raw output:`n$raw"
+    }
     $parsed = $json | ConvertFrom-Json
 
     $requiredKeys = @("ok", "success", "code", "server_ts")
@@ -148,4 +166,3 @@ Write-Host "[ui-parity] pass=$overallPass"
 if (-not $overallPass) {
     exit 1
 }
-

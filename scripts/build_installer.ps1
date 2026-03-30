@@ -4,6 +4,9 @@ param(
     [string]$SourceBinDir = "build/bin",
     [string]$OutputDir = "build/installer",
     [string]$InstallerScript = "installer/LightroomSyncSetup.iss",
+    [ValidateSet("harness", "wails")]
+    [string]$UIRuntime = "harness",
+    [switch]$AllowHarnessFallback,
     [switch]$SkipBuild
 )
 
@@ -17,6 +20,8 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
 if (-not (Test-Path -LiteralPath $ProjectRoot)) {
     throw "ProjectRoot not found: $ProjectRoot"
 }
+
+$UIRuntime = $UIRuntime.Trim().ToLowerInvariant()
 
 function Resolve-IsccPath {
     if ($env:ISCC_PATH -and (Test-Path -LiteralPath $env:ISCC_PATH)) {
@@ -55,7 +60,11 @@ if (-not (Test-Path -LiteralPath $resolvedInstallerScript)) {
 
 if (-not $SkipBuild) {
     Write-Host "[installer] Building binaries first..."
-    & (Join-Path $ProjectRoot "scripts/build_windows.ps1") -Version $Version -OutputDir $SourceBinDir
+    & (Join-Path $ProjectRoot "scripts/build_windows.ps1") `
+        -Version $Version `
+        -OutputDir $SourceBinDir `
+        -UIRuntime $UIRuntime `
+        -AllowHarnessFallback:$AllowHarnessFallback
     if ($LASTEXITCODE -ne 0) {
         throw "build_windows.ps1 failed"
     }
@@ -72,6 +81,21 @@ foreach ($binary in $requiredBinaries) {
     }
 }
 
+$metadataPath = Join-Path $resolvedSourceBinDir "build-metadata.json"
+$uiRuntimeEffective = $UIRuntime
+if (Test-Path -LiteralPath $metadataPath) {
+    $metadata = Get-Content -Raw -LiteralPath $metadataPath | ConvertFrom-Json
+    if ($metadata.ui_runtime_effective) {
+        $uiRuntimeEffective = [string]$metadata.ui_runtime_effective
+    }
+}
+if ($uiRuntimeEffective -ne $UIRuntime) {
+    if (-not $AllowHarnessFallback) {
+        throw "UI runtime mismatch: requested=$UIRuntime effective=$uiRuntimeEffective. Re-run with -AllowHarnessFallback to allow fallback."
+    }
+    Write-Warning "UI runtime mismatch accepted by fallback policy: requested=$UIRuntime effective=$uiRuntimeEffective"
+}
+
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
 $iscc = Resolve-IsccPath
 
@@ -79,6 +103,7 @@ Write-Host "[installer] ISCC=$iscc"
 Write-Host "[installer] Version=$Version"
 Write-Host "[installer] SourceBinDir=$resolvedSourceBinDir"
 Write-Host "[installer] OutputDir=$resolvedOutputDir"
+Write-Host "[installer] UIRuntime requested=$UIRuntime effective=$uiRuntimeEffective"
 
 Push-Location $ProjectRoot
 try {
@@ -86,6 +111,8 @@ try {
         "/DAppVersion=$Version" `
         "/DSourceBinDir=$resolvedSourceBinDir" `
         "/DOutputDir=$resolvedOutputDir" `
+        "/DUIRuntime=$uiRuntimeEffective" `
+        "/DUIRuntimeRequested=$UIRuntime" `
         $resolvedInstallerScript
 
     if ($LASTEXITCODE -ne 0) {

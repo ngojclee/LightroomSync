@@ -3,6 +3,9 @@ param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$OutputDir = "build/bin",
     [string]$ReleaseDir = "build/release",
+    [ValidateSet("harness", "wails")]
+    [string]$UIRuntime = "harness",
+    [switch]$AllowHarnessFallback,
     [switch]$SkipTests,
     [switch]$SkipReleaseAssets
 )
@@ -17,6 +20,8 @@ if ($Version -notmatch '^\d+\.\d+\.\d+\.\d+$') {
 if (-not (Test-Path -LiteralPath $ProjectRoot)) {
     throw "ProjectRoot not found: $ProjectRoot"
 }
+
+$UIRuntime = $UIRuntime.Trim().ToLowerInvariant()
 
 $resolvedOutputDir = Join-Path $ProjectRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
@@ -86,6 +91,64 @@ try {
 
     $agentPath = Join-Path $resolvedOutputDir "LightroomSyncAgent.exe"
     $uiPath = Join-Path $resolvedOutputDir "LightroomSyncUI.exe"
+    $uiRuntimeEffective = $UIRuntime
+    $uiBuildWarnings = New-Object System.Collections.Generic.List[string]
+
+    function Build-HarnessUI {
+        param(
+            [Parameter(Mandatory = $true)][string]$OutPath,
+            [Parameter(Mandatory = $true)][string]$Ldflags
+        )
+        & go build -trimpath -ldflags $Ldflags -o $OutPath ./cmd/ui
+        if ($LASTEXITCODE -ne 0) {
+            throw "ui build failed"
+        }
+    }
+
+    function Build-WailsUI {
+        param(
+            [Parameter(Mandatory = $true)][string]$OutPath,
+            [Parameter(Mandatory = $true)][string]$Ldflags,
+            [Parameter(Mandatory = $true)][string]$Root
+        )
+
+        $wailsCmd = Get-Command wails -ErrorAction SilentlyContinue
+        if (-not $wailsCmd) {
+            throw "wails CLI not found in PATH."
+        }
+
+        $wailsArgs = @(
+            "build",
+            "-clean",
+            "-platform", "windows/amd64",
+            "-ldflags", $Ldflags
+        )
+        & $wailsCmd.Source @wailsArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "wails build failed"
+        }
+
+        $candidates = @(
+            (Join-Path $Root "build\bin\LightroomSyncUI.exe"),
+            (Join-Path $Root "build\bin\LightroomSyncUI")
+        )
+        $builtPath = $null
+        foreach ($candidate in $candidates) {
+            if (Test-Path -LiteralPath $candidate) {
+                $builtPath = (Resolve-Path -LiteralPath $candidate).Path
+                break
+            }
+        }
+        if (-not $builtPath) {
+            throw "wails build succeeded but output binary not found in expected locations."
+        }
+
+        $builtFullPath = [System.IO.Path]::GetFullPath($builtPath)
+        $targetFullPath = [System.IO.Path]::GetFullPath($OutPath)
+        if ($targetFullPath -ne $builtFullPath) {
+            Copy-Item -LiteralPath $builtPath -Destination $OutPath -Force
+        }
+    }
 
     Write-Host "[build] Building Agent..."
     & go build -trimpath -ldflags $ldflags -o $agentPath ./cmd/agent
@@ -93,10 +156,22 @@ try {
         throw "agent build failed"
     }
 
-    Write-Host "[build] Building UI..."
-    & go build -trimpath -ldflags $ldflags -o $uiPath ./cmd/ui
-    if ($LASTEXITCODE -ne 0) {
-        throw "ui build failed"
+    Write-Host "[build] Building UI (requested runtime=$UIRuntime)..."
+    if ($UIRuntime -eq "wails") {
+        try {
+            Build-WailsUI -OutPath $uiPath -Ldflags $ldflags -Root $ProjectRoot
+        } catch {
+            if (-not $AllowHarnessFallback) {
+                throw
+            }
+            $warningText = "Wails UI build failed, falling back to harness UI: $($_.Exception.Message)"
+            $uiBuildWarnings.Add($warningText) | Out-Null
+            Write-Warning $warningText
+            Build-HarnessUI -OutPath $uiPath -Ldflags $ldflags
+            $uiRuntimeEffective = "harness"
+        }
+    } else {
+        Build-HarnessUI -OutPath $uiPath -Ldflags $ldflags
     }
 
     $agentVersion = (& $agentPath --version 2>$null | Out-String).Trim()
@@ -136,11 +211,15 @@ try {
     }
 
     $buildMetadata = [ordered]@{
-        version      = $Version
-        built_at_utc = (Get-Date).ToUniversalTime().ToString("o")
-        git_commit   = $gitCommit
-        go_version   = (& go version | Out-String).Trim()
-        files        = @(
+        version                = $Version
+        built_at_utc           = (Get-Date).ToUniversalTime().ToString("o")
+        git_commit             = $gitCommit
+        go_version             = (& go version | Out-String).Trim()
+        ui_runtime_requested   = $UIRuntime
+        ui_runtime_effective   = $uiRuntimeEffective
+        ui_runtime_fallback    = ($UIRuntime -ne $uiRuntimeEffective)
+        ui_runtime_warnings    = @($uiBuildWarnings)
+        files                  = @(
             (Get-BinaryMetadata -Path $agentPath),
             (Get-BinaryMetadata -Path $uiPath)
         )
@@ -169,7 +248,7 @@ try {
 
     Write-Host "[build] OK"
     Write-Host "  Agent : $agentPath"
-    Write-Host "  UI    : $uiPath"
+    Write-Host "  UI    : $uiPath (requested=$UIRuntime, effective=$uiRuntimeEffective)"
     Write-Host "  Meta  : $metadataPath"
     if (-not $SkipReleaseAssets) {
         Write-Host "  Release Dir : $resolvedReleaseDir"

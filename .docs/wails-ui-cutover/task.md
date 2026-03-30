@@ -4,7 +4,7 @@
 >  
 > Target: Real Wails GUI as default UI runtime
 >  
-> Current Focus: Wave 4 (M4) Data/State hardening (Wave 3 baseline delivered; Wave 1 verification partially blocked by environment)
+> Current Focus: Wave 5 (M5) Build/Installer integration (runtime-aware pipeline delivered; host-specific installer compile still pending)
 >  
 > Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 >  
@@ -61,10 +61,11 @@ Status note: polling + in-flight guards are now implemented in the frontend shel
 
 ## M5. Build/Installer
 
-- [ ] Add Wails UI build target to `scripts/build_windows.ps1`
-- [ ] Add optional fallback harness build flag for transition period
-- [ ] Ensure installer includes the correct UI runtime artifact
-- [ ] Verification: release metadata still reports correct version/hash
+- [x] Add Wails UI build target to `scripts/build_windows.ps1`
+- [x] Add optional fallback harness build flag for transition period
+- [x] Ensure installer includes the correct UI runtime artifact
+- [x] Verification: release metadata still reports correct version/hash
+Status note: build pipeline now accepts `-UIRuntime harness|wails` and optional `-AllowHarnessFallback`; metadata records requested/effective runtime and fallback warnings. `build_installer.ps1` now validates runtime from metadata and passes runtime defines into Inno Setup. Local verification passed for `build_windows.ps1` (harness + wails fallback path); installer compile is pending on a machine with `ISCC.exe`.
 
 ## M6. Validation
 

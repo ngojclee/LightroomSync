@@ -1,14 +1,28 @@
 VERSION ?= 2.0.0.0
+UI_RUNTIME ?= harness
+ALLOW_UI_FALLBACK ?= 0
 
-.PHONY: all build installer e2e e2e-installer e2e-compare e2e-tray e2e-ui-parity agent ui test clean
+.PHONY: all build build-wails build-wails-fallback installer installer-wails installer-wails-fallback e2e e2e-installer e2e-compare e2e-tray e2e-ui-parity agent ui test clean
 
 all: build
 
 build:
-	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)"
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)" -UIRuntime "$(UI_RUNTIME)" $(if $(filter 1 yes true,$(ALLOW_UI_FALLBACK)),-AllowHarnessFallback,)
+
+build-wails:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)" -UIRuntime "wails"
+
+build-wails-fallback:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)" -UIRuntime "wails" -AllowHarnessFallback
 
 installer:
-	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1 -Version "$(VERSION)"
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1 -Version "$(VERSION)" -UIRuntime "$(UI_RUNTIME)" $(if $(filter 1 yes true,$(ALLOW_UI_FALLBACK)),-AllowHarnessFallback,)
+
+installer-wails:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1 -Version "$(VERSION)" -UIRuntime "wails"
+
+installer-wails-fallback:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_installer.ps1 -Version "$(VERSION)" -UIRuntime "wails" -AllowHarnessFallback
 
 e2e:
 	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_windows_manual.ps1 -Mode all

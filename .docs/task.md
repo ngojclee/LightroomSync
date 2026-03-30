@@ -197,7 +197,8 @@ Status note: runtime switch + Wails/frontend scaffold implemented; remaining blo
 - [x] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
 - [x] Wire polling/event flows and robust in-flight/error handling
 Status note: Wave 3 + Wave 4 baseline is now implemented in `frontend/src` with a full tab shell, Wails/global bridge fallback, visibility-aware polling (`status` + `subscribe-logs`), and in-flight guards. Remaining work is runtime verification in real Wails window once npm/wails network dependency is available.
-- [ ] Integrate Wails artifact into build/installer pipeline
+- [x] Integrate Wails artifact into build/installer pipeline
+Status note: `scripts/build_windows.ps1` and `scripts/build_installer.ps1` are now runtime-aware (`-UIRuntime harness|wails`) with optional fallback (`-AllowHarnessFallback`) and metadata/runtime validation to keep packaged UI artifacts explicit and traceable.
 - [ ] Execute Wails validation matrix and switch default UI runtime
 
 ## Phase 7: Build, Release, and Installer

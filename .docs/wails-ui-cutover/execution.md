@@ -60,12 +60,14 @@ Expected:
 ### Wave 5
 
 ```powershell
-pwsh -File scripts/build_windows.ps1 -Version 2.0.0.0
-pwsh -File scripts/build_installer.ps1 -Version 2.0.0.0
+pwsh -File scripts/build_windows.ps1 -Version 2.0.0.0 -UIRuntime harness
+pwsh -File scripts/build_windows.ps1 -Version 2.0.0.0 -UIRuntime wails -AllowHarnessFallback
+pwsh -File scripts/build_installer.ps1 -Version 2.0.0.0 -UIRuntime wails -AllowHarnessFallback
 ```
 
 Expected:
 - UI binary + metadata generated.
+- Metadata captures `ui_runtime_requested/effective` for traceability.
 - Installer includes intended UI artifact.
 
 ### Wave 6

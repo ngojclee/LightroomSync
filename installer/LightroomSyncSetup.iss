@@ -10,6 +10,14 @@
   #define OutputDir "..\\build\\installer"
 #endif
 
+#ifndef UIRuntime
+  #define UIRuntime "harness"
+#endif
+
+#ifndef UIRuntimeRequested
+  #define UIRuntimeRequested UIRuntime
+#endif
+
 [Setup]
 AppId={{8EDE9ED8-3514-492D-AF64-4E5FC856D636}
 AppName=Lightroom Sync
@@ -89,6 +97,12 @@ function PrepareToInstall(var NeedsRestart: Boolean): String;
 begin
   StopRunningProcesses();
   Result := '';
+end;
+
+function InitializeSetup(): Boolean;
+begin
+  Log(Format('Installer UI runtime requested=%s effective=%s', ['{#UIRuntimeRequested}', '{#UIRuntime}']));
+  Result := True;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
