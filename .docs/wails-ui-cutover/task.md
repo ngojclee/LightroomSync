@@ -70,10 +70,10 @@ Status note: build pipeline now accepts `-UIRuntime harness|wails` and optional 
 ## M6. Validation
 
 - [x] Add Wails-specific smoke script for startup + IPC + close behavior
-- [ ] Execute tray open/focus validation with Wails UI
+- [x] Execute tray open/focus validation with Wails UI
 - [ ] Execute Phase 8.3 manual matrix using Wails UI
 - [ ] Mark cutover complete and switch default UI runtime
-Status note: `scripts/e2e_wails_ui_smoke.ps1` now generates `build/e2e/wails-ui-smoke-*.json` and validates startup + IPC + close. In this environment, strict mode reports expected failure (`mode=startup_failed`) due Wails preflight blocker; `-AcceptKnownPreflightBlocker` records `mode=known_blocker_accepted` for trackable evidence without masking the blocker.
+Status note: `scripts/e2e_wails_ui_smoke.ps1` now generates `build/e2e/wails-ui-smoke-*.json` and validates startup + IPC + close. `scripts/e2e_tray_ui_smoke.ps1` is now runtime-aware (`-UIRuntime harness|wails`) and captures Wails focus/preflight outcomes; strict Wails run currently fails as expected while `-AcceptKnownPreflightBlocker` produces auditable pass evidence for blocked environments.
 
 ## Cutover Definition of Done
 

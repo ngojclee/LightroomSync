@@ -16,6 +16,6 @@ func acquireUISingleInstance() (uiSingleInstanceGuard, bool, error) {
 	return noopGuard{}, true, nil
 }
 
-func focusExistingUIWindow() error {
+func focusExistingUIWindow(_ string) error {
 	return fmt.Errorf("window focus is only supported on Windows")
 }

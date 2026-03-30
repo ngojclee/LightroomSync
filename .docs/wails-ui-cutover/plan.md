@@ -21,6 +21,7 @@
 - Wave 2 bridge refactor is implemented: UI action handlers are centralized in `internal/uiapi`, covered by package tests, and parity evidence is captured via `scripts/e2e_ui_command_parity.ps1`.
 - Wave 5 pipeline baseline is implemented: build/installer scripts now support explicit UI runtime selection (`harness|wails`) and fallback-aware runtime provenance via `build-metadata.json`.
 - Wave 6 smoke baseline is implemented: a dedicated Wails smoke probe now validates startup + IPC + close and records strict/known-blocker evidence under `build/e2e`.
+- Wave 6 tray/focus validation is now runtime-aware: tray smoke supports Wails runtime checks and blocker-aware evidence mode, while UI single-instance/focus handling is enforced before runtime dispatch.
 
 ## Execution Order (6 Waves)
 

@@ -200,7 +200,7 @@ Status note: Wave 3 + Wave 4 baseline is now implemented in `frontend/src` with 
 - [x] Integrate Wails artifact into build/installer pipeline
 Status note: `scripts/build_windows.ps1` and `scripts/build_installer.ps1` are now runtime-aware (`-UIRuntime harness|wails`) with optional fallback (`-AllowHarnessFallback`) and metadata/runtime validation to keep packaged UI artifacts explicit and traceable.
 - [ ] Execute Wails validation matrix and switch default UI runtime
-Status note: Wails-specific smoke automation is now available via `scripts/e2e_wails_ui_smoke.ps1` (startup + IPC + close report). Remaining cutover work is running tray/manual matrix on a host where Wails runtime preflight is unblocked.
+Status note: Wails smoke + tray automation are now available via `scripts/e2e_wails_ui_smoke.ps1` and runtime-aware `scripts/e2e_tray_ui_smoke.ps1` (`-UIRuntime wails`). Strict Wails validation still reports the expected preflight blocker in this environment, while blocker-accepted mode records explicit evidence without hiding the issue.
 
 ## Phase 7: Build, Release, and Installer
 

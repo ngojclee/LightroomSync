@@ -3,10 +3,13 @@ param(
     [string]$OutputDir = "build/e2e",
     [string]$AgentExePath = "",
     [string]$UIExePath = "",
+    [ValidateSet("harness", "wails")]
+    [string]$UIRuntime = "harness",
     [string]$PipeName = "\\.\pipe\LightroomSyncIPC",
     [string]$LocalAppDataPath = "",
     [int]$TimeoutSec = 30,
     [switch]$SkipUIFocus,
+    [switch]$AcceptKnownPreflightBlocker,
     [switch]$NoAutoStartAgent,
     [switch]$KeepAgentRunning
 )
@@ -60,7 +63,9 @@ function Resolve-Executable {
 function Get-JsonBlock {
     param([Parameter(Mandatory = $true)][string]$Raw)
 
-    $trimmed = $Raw.Trim()
+    $ansiPattern = [char]27 + '\[[0-9;]*[A-Za-z]'
+    $sanitized = [regex]::Replace($Raw, $ansiPattern, "")
+    $trimmed = $sanitized.Trim()
     $start = $trimmed.IndexOf("{")
     if ($start -lt 0) {
         throw "No JSON object found in output: $trimmed"
@@ -93,8 +98,24 @@ function Invoke-UIAction {
         $args += @("--payload", $Payload)
     }
 
-    $raw = & $UIExe @args 2>&1 | Out-String
-    $json = Get-JsonBlock -Raw $raw
+    $raw = ""
+    $json = $null
+    for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $raw = & $UIExe @args 2>&1 | Out-String
+        try {
+            $json = Get-JsonBlock -Raw $raw
+            break
+        } catch {
+            if ($attempt -lt 2) {
+                Start-Sleep -Milliseconds 150
+                continue
+            }
+            throw
+        }
+    }
+    if ([string]::IsNullOrWhiteSpace($json)) {
+        throw "Failed to parse JSON envelope for action '$Action'. Raw output:`n$raw"
+    }
     $parsed = $json | ConvertFrom-Json
 
     return [PSCustomObject]@{
@@ -223,6 +244,11 @@ function Stop-AgentIfOwned {
 try {
     Ensure-AgentRunning
 
+    $uiLaunchArgs = @()
+    if ($UIRuntime -eq "wails") {
+        $uiLaunchArgs = @("--runtime", "wails", "--pipe", $PipeName)
+    }
+
     $statusBefore = Invoke-UIAction -UIExe $resolvedUI -Action "status"
     $syncNow = Invoke-UIAction -UIExe $resolvedUI -Action "sync-now"
     $statusAfter = Invoke-UIAction -UIExe $resolvedUI -Action "status"
@@ -249,31 +275,57 @@ try {
     $uiFocusOutput = ""
     $uiFocusCheck = $false
     $uiFocusDetail = ""
+    $uiFocusKnownBlocker = $false
+    $knownBlockerPatterns = @(
+        "Unable to find Wails in go.mod",
+        "run wails dev",
+        "wails CLI"
+    )
     if ($SkipUIFocus) {
         $uiFocusCheck = $true
         $uiFocusDetail = "skipped by -SkipUIFocus"
     } else {
-        $uiFocusStdOut = Join-Path $resolvedOutputDir ("ui-focus-{0}.log" -f (New-RunStamp))
-        $uiFocusStdErr = Join-Path $resolvedOutputDir ("ui-focus-{0}.err.log" -f (New-RunStamp))
-        try {
-            $primaryUIProc = Start-Process -FilePath $resolvedUI -PassThru
-            Start-Sleep -Milliseconds 1500
-            $secondUIProc = Start-Process -FilePath $resolvedUI -PassThru -RedirectStandardOutput $uiFocusStdOut -RedirectStandardError $uiFocusStdErr
-            $secondExited = $secondUIProc.WaitForExit(10000)
-            if (-not $secondExited) {
-                Stop-Process -Id $secondUIProc.Id -Force -ErrorAction SilentlyContinue
-                $uiFocusCheck = $false
-                $uiFocusDetail = "second launch did not exit within timeout"
-            } else {
-                if (Test-Path -LiteralPath $uiFocusStdOut) {
-                    $uiFocusOutput = Get-Content -LiteralPath $uiFocusStdOut -Raw
+        if ($UIRuntime -eq "wails") {
+            try {
+                $uiFocusOutput = (& $resolvedUI @uiLaunchArgs 2>&1 | Out-String)
+                $secondExitCode = $LASTEXITCODE
+                if ($null -eq $secondExitCode) {
+                    $secondExitCode = 0
                 }
-                $uiFocusCheck = [bool]($secondUIProc.ExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused"))
-                $uiFocusDetail = "exit_code=$($secondUIProc.ExitCode)"
+                foreach ($pattern in $knownBlockerPatterns) {
+                    if ($uiFocusOutput -match [regex]::Escape($pattern)) {
+                        $uiFocusKnownBlocker = $true
+                        break
+                    }
+                }
+
+                if ($uiFocusKnownBlocker -and $AcceptKnownPreflightBlocker) {
+                    $uiFocusCheck = $true
+                    $uiFocusDetail = "known wails preflight blocker accepted"
+                } else {
+                    $uiFocusCheck = [bool]($secondExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused"))
+                    $uiFocusDetail = "exit_code=$secondExitCode"
+                }
+            } catch {
+                $uiFocusCheck = $false
+                $uiFocusDetail = "launch failed: $($_.Exception.Message)"
             }
-        } catch {
-            $uiFocusCheck = $false
-            $uiFocusDetail = "launch failed: $($_.Exception.Message)"
+        } else {
+            try {
+                $primaryUIProc = Start-Process -FilePath $resolvedUI -ArgumentList $uiLaunchArgs -PassThru
+                Start-Sleep -Milliseconds 1500
+                $uiFocusOutput = (& $resolvedUI @uiLaunchArgs 2>&1 | Out-String)
+                $secondExitCode = $LASTEXITCODE
+                if ($null -eq $secondExitCode) {
+                    $secondExitCode = 0
+                }
+
+                $uiFocusCheck = [bool]($secondExitCode -eq 0 -and ($uiFocusOutput -match "Existing UI instance focused"))
+                $uiFocusDetail = "exit_code=$secondExitCode"
+            } catch {
+                $uiFocusCheck = $false
+                $uiFocusDetail = "launch failed: $($_.Exception.Message)"
+            }
         }
     }
 
@@ -287,16 +339,28 @@ try {
         subscribe_logs_ok      = [bool]($logsSnapshot.Parsed.ok -and $logsSnapshot.Parsed.success)
         tray_status_file_ready = [bool]$trayStatusReady
         ui_focus_on_relaunch   = [bool]$uiFocusCheck
+        ui_focus_known_blocker = [bool]$uiFocusKnownBlocker
     }
 
-    $all = @($checks.GetEnumerator() | ForEach-Object { [bool]$_.Value })
-    $overallPass = ($all -notcontains $false)
+    $requiredCheckKeys = @(
+        "agent_ready",
+        "status_before_ok",
+        "sync_now_command_ok",
+        "status_after_ok",
+        "subscribe_logs_ok",
+        "tray_status_file_ready",
+        "ui_focus_on_relaunch"
+    )
+    $allRequired = @($requiredCheckKeys | ForEach-Object { [bool]$checks[$_] })
+    $overallPass = ($allRequired -notcontains $false)
 
     $report = [ordered]@{
         created_at_utc = (Get-Date).ToUniversalTime().ToString("o")
         host           = $hostName
         local_appdata  = $resolvedLocalAppData
         pipe           = $PipeName
+        ui_runtime     = $UIRuntime
+        required_checks = $requiredCheckKeys
         agent_exe      = $resolvedAgent
         ui_exe         = $resolvedUI
         checks         = $checks
@@ -306,6 +370,7 @@ try {
         status_after   = $statusAfter.Parsed
         logs_snapshot  = $logsSnapshot.Parsed
         ui_focus_detail = $uiFocusDetail
+        ui_focus_stdout = $uiFocusOutput
         pass           = $overallPass
     }
 

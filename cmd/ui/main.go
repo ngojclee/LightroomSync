@@ -47,20 +47,9 @@ func main() {
 	}
 
 	mode := normalizeRuntimeMode(*runtimeMode)
-	if mode == uiRuntimeWails {
-		if err := launchWailsRuntime(*pipeName); err != nil {
-			log.Printf("[ERROR] Failed to launch Wails runtime: %v", err)
-			os.Exit(1)
-		}
-		return
-	}
-	if mode != uiRuntimeHarness {
+	if mode != uiRuntimeHarness && mode != uiRuntimeWails {
 		log.Printf("[WARN] Unknown runtime mode %q, falling back to %q.", mode, uiRuntimeHarness)
-	}
-
-	if runtime.GOOS != "windows" {
-		log.Printf("[WARN] Temporary GUI harness currently supports Windows only. Use --action for headless checks.")
-		return
+		mode = uiRuntimeHarness
 	}
 
 	guard, acquired, err := acquireUISingleInstance()
@@ -68,7 +57,7 @@ func main() {
 		log.Fatalf("Failed to acquire UI single-instance guard: %v", err)
 	}
 	if !acquired {
-		if err := focusExistingUIWindow(); err != nil {
+		if err := focusExistingUIWindow(mode); err != nil {
 			log.Printf("[WARN] Another UI instance is running but could not be focused: %v", err)
 		} else {
 			log.Println("[INFO] Existing UI instance focused.")
@@ -76,6 +65,19 @@ func main() {
 		return
 	}
 	defer guard.Release()
+
+	if mode == uiRuntimeWails {
+		if err := launchWailsRuntime(*pipeName); err != nil {
+			log.Printf("[ERROR] Failed to launch Wails runtime: %v", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	if runtime.GOOS != "windows" {
+		log.Printf("[WARN] Temporary GUI harness currently supports Windows only. Use --runtime wails or --action for headless checks.")
+		return
+	}
 
 	waitCtx, cancelWait := context.WithTimeout(context.Background(), 2200*time.Millisecond)
 	defer cancelWait()

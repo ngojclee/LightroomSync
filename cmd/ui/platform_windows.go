@@ -4,6 +4,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -36,21 +37,48 @@ func acquireUISingleInstance() (uiSingleInstanceGuard, bool, error) {
 	return guard, true, nil
 }
 
-func focusExistingUIWindow() error {
-	titlePtr, err := syscall.UTF16PtrFromString(uiHarnessWindowTitle)
-	if err != nil {
-		return fmt.Errorf("encode window title: %w", err)
+func focusExistingUIWindow(runtimeMode string) error {
+	titles := windowTitlesForRuntime(runtimeMode)
+	for _, title := range titles {
+		hwnd, err := findWindowByTitle(title)
+		if err != nil {
+			continue
+		}
+		_, _, _ = user32ProcShowWindow.Call(hwnd, swRestore)
+		ret, _, callErr := user32ProcSetForegroundWindow.Call(hwnd)
+		if ret == 0 && callErr != syscall.Errno(0) {
+			return fmt.Errorf("set foreground window for title %q: %w", title, callErr)
+		}
+		return nil
 	}
+	return fmt.Errorf("window not found for runtime %q (titles tried: %s)", runtimeMode, strings.Join(titles, ", "))
+}
 
+func findWindowByTitle(title string) (uintptr, error) {
+	titlePtr, err := syscall.UTF16PtrFromString(title)
+	if err != nil {
+		return 0, fmt.Errorf("encode window title: %w", err)
+	}
 	hwnd, _, _ := user32ProcFindWindowW.Call(0, uintptr(unsafe.Pointer(titlePtr)))
 	if hwnd == 0 {
-		return fmt.Errorf("window with title %q not found", uiHarnessWindowTitle)
+		return 0, fmt.Errorf("window with title %q not found", title)
 	}
+	return hwnd, nil
+}
 
-	_, _, _ = user32ProcShowWindow.Call(hwnd, swRestore)
-	ret, _, callErr := user32ProcSetForegroundWindow.Call(hwnd)
-	if ret == 0 && callErr != syscall.Errno(0) {
-		return fmt.Errorf("set foreground window: %w", callErr)
+func windowTitlesForRuntime(runtimeMode string) []string {
+	switch runtimeMode {
+	case uiRuntimeWails:
+		return []string{
+			"LightroomSync",
+			"Lightroom Sync",
+			uiHarnessWindowTitle,
+		}
+	default:
+		return []string{
+			uiHarnessWindowTitle,
+			"LightroomSync",
+			"Lightroom Sync",
+		}
 	}
-	return nil
 }

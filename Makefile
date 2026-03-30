@@ -2,7 +2,7 @@ VERSION ?= 2.0.0.0
 UI_RUNTIME ?= harness
 ALLOW_UI_FALLBACK ?= 0
 
-.PHONY: all build build-wails build-wails-fallback installer installer-wails installer-wails-fallback e2e e2e-installer e2e-compare e2e-tray e2e-wails e2e-ui-parity agent ui test clean
+.PHONY: all build build-wails build-wails-fallback installer installer-wails installer-wails-fallback e2e e2e-installer e2e-compare e2e-tray e2e-tray-wails e2e-tray-wails-blocker e2e-wails e2e-ui-parity agent ui test clean
 
 all: build
 
@@ -35,6 +35,12 @@ e2e-compare:
 
 e2e-tray:
 	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_tray_ui_smoke.ps1
+
+e2e-tray-wails:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_tray_ui_smoke.ps1 -UIRuntime "wails"
+
+e2e-tray-wails-blocker:
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_tray_ui_smoke.ps1 -UIRuntime "wails" -AcceptKnownPreflightBlocker
 
 e2e-wails:
 	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/e2e_wails_ui_smoke.ps1
