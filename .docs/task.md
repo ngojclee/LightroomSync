@@ -210,10 +210,10 @@
 
 ### 8.2 Chaos & Recovery Tests
 
-- [ ] Simulate slow SMB latency (5s+)
-- [ ] Simulate share disconnect/reconnect mid-operation
-- [ ] Simulate sleep/resume during heartbeat/sync
-- [ ] Simulate concurrent two-machine lock contention
+- [x] Simulate slow SMB latency (5s+)
+- [x] Simulate share disconnect/reconnect mid-operation
+- [x] Simulate sleep/resume during heartbeat/sync
+- [x] Simulate concurrent two-machine lock contention
 
 ### 8.3 Manual E2E
 

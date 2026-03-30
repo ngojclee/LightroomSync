@@ -2,8 +2,10 @@ package monitor
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"strings"
 	"testing"
 	"time"
@@ -140,4 +142,90 @@ func TestLockManager_InternalSessionEpoch_DoesNotChangeWireFormat(t *testing.T) 
 	if got := mgr.Epoch(); got != 2 {
 		t.Fatalf("epoch after write #2 = %d, want 2", got)
 	}
+}
+
+func TestLockManager_TwoMachineContention_NoCorruption(t *testing.T) {
+	catalogDir := t.TempDir()
+	mgrA := NewLockManager(catalogDir)
+	mgrB := NewLockManager(catalogDir)
+
+	ctx := context.Background()
+	writeErrors := make(chan error, 8)
+
+	writeBurst := func(mgr *LockManager, machine string, offset int) {
+		for i := 0; i < 50; i++ {
+			info := LockInfo{
+				Status:    LockOnline,
+				Machine:   machine,
+				Timestamp: time.Date(2026, 3, 30, 2, 0, 0, 0, time.UTC).Add(time.Duration(offset+i) * time.Millisecond),
+			}
+			if err := mgr.WriteLock(ctx, info); err != nil {
+				writeErrors <- err
+				return
+			}
+
+			raw, err := os.ReadFile(filepath.Join(catalogDir, lockFileName))
+			if err != nil {
+				if isTransientLockContentionErr(err) {
+					continue
+				}
+				writeErrors <- err
+				return
+			}
+			parsed, err := ParseLock(string(raw))
+			if err != nil {
+				writeErrors <- err
+				return
+			}
+			if parsed.Machine != "PC-A" && parsed.Machine != "PC-B" {
+				writeErrors <- fmt.Errorf("unexpected machine in lock file: %q", parsed.Machine)
+				return
+			}
+		}
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		writeBurst(mgrA, "PC-A", 0)
+	}()
+	go func() {
+		defer wg.Done()
+		writeBurst(mgrB, "PC-B", 1000)
+	}()
+	wg.Wait()
+	close(writeErrors)
+
+	for err := range writeErrors {
+		if err != nil {
+			t.Fatalf("contention write/read failed: %v", err)
+		}
+	}
+
+	finalInfo, err := mgrA.ReadLock(ctx)
+	if err != nil {
+		t.Fatalf("read final lock failed: %v", err)
+	}
+	if finalInfo == nil {
+		t.Fatal("expected final lock file after contention")
+	}
+	if finalInfo.Status != LockOnline {
+		t.Fatalf("final status = %q, want %q", finalInfo.Status, LockOnline)
+	}
+	if finalInfo.Machine != "PC-A" && finalInfo.Machine != "PC-B" {
+		t.Fatalf("final machine = %q, want PC-A or PC-B", finalInfo.Machine)
+	}
+}
+
+func isTransientLockContentionErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if os.IsNotExist(err) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "being used by another process") ||
+		strings.Contains(msg, "access is denied")
 }

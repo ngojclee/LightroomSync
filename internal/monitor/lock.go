@@ -105,11 +105,11 @@ func (m *LockManager) WriteLock(ctx context.Context, info LockInfo) error {
 	lockPath := m.LockPath()
 	dir := filepath.Dir(lockPath)
 
-	tmpFile := filepath.Join(dir, ".lightroom_lock.tmp")
+	tmpFile := m.tempLockPath(dir, info)
 	if err := writeFileWithContext(ctx, tmpFile, []byte(info.String())); err != nil {
 		return fmt.Errorf("write lock tmp: %w", err)
 	}
-	if err := os.Rename(tmpFile, lockPath); err != nil {
+	if err := renameWithRetry(ctx, tmpFile, lockPath, 5, 5*time.Millisecond); err != nil {
 		os.Remove(tmpFile)
 		return fmt.Errorf("rename lock: %w", err)
 	}
@@ -182,4 +182,53 @@ func newLockSessionID() string {
 		return hex.EncodeToString(buf)
 	}
 	return fmt.Sprintf("%d", time.Now().UTC().UnixNano())
+}
+
+func (m *LockManager) tempLockPath(dir string, info LockInfo) string {
+	session := strings.TrimSpace(info.SessionID)
+	if session == "" {
+		session = m.SessionID()
+	}
+	return filepath.Join(dir, fmt.Sprintf(".lightroom_lock.%s.%d.tmp", session, info.Epoch))
+}
+
+func renameWithRetry(ctx context.Context, src, dst string, attempts int, baseDelay time.Duration) error {
+	if attempts <= 1 {
+		return os.Rename(src, dst)
+	}
+	if baseDelay <= 0 {
+		baseDelay = 5 * time.Millisecond
+	}
+
+	delay := baseDelay
+	var lastErr error
+	for attempt := 1; attempt <= attempts; attempt++ {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		if err := os.Rename(src, dst); err == nil {
+			return nil
+		} else {
+			lastErr = err
+		}
+
+		if attempt == attempts {
+			break
+		}
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+
+		if delay < 50*time.Millisecond {
+			delay *= 2
+		}
+	}
+
+	return lastErr
 }

@@ -196,3 +196,90 @@ func TestSyncWorker_PauseResumeBlocksQueueProcessing(t *testing.T) {
 		t.Fatal("job did not run after resume")
 	}
 }
+
+func TestSyncWorker_RecoversAfterStalledSyncJob(t *testing.T) {
+	bus := NewEventBus(16)
+	state := NewAppState()
+	worker := NewSyncWorker(4, state, bus)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go worker.Run(ctx)
+
+	releaseStall := make(chan struct{})
+	firstStarted := make(chan struct{}, 1)
+	firstDone := make(chan struct{}, 1)
+	secondDone := make(chan struct{}, 1)
+
+	err := worker.Enqueue(SyncJob{
+		Name: "stalled-job",
+		Execute: func(ctx context.Context) error {
+			select {
+			case firstStarted <- struct{}{}:
+			default:
+			}
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-releaseStall:
+			}
+			select {
+			case firstDone <- struct{}{}:
+			default:
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("enqueue stalled job failed: %v", err)
+	}
+
+	err = worker.Enqueue(SyncJob{
+		Name: "post-resume-job",
+		Execute: func(ctx context.Context) error {
+			select {
+			case secondDone <- struct{}{}:
+			default:
+			}
+			return nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("enqueue second job failed: %v", err)
+	}
+
+	select {
+	case <-firstStarted:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("stalled job did not start")
+	}
+
+	select {
+	case <-secondDone:
+		t.Fatal("second job should wait while first job is stalled")
+	case <-time.After(120 * time.Millisecond):
+	}
+
+	close(releaseStall)
+
+	select {
+	case <-firstDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("stalled job did not complete after release")
+	}
+
+	select {
+	case <-secondDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("second job did not execute after stalled job resumed")
+	}
+
+	deadline := time.Now().Add(400 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		if !state.Snapshot().SyncInProgress {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("sync state should be false after recovery flow completed")
+}
