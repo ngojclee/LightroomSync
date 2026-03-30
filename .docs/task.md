@@ -31,7 +31,7 @@
 
 ### 1.1 Project Bootstrap
 
-- [ ] Install Go 1.22+ and Wails CLI
+- [x] Install Go 1.22+ and Wails CLI
 - [x] Initialize module `github.com/ngojclee/lightroom-sync`
 - [x] Create structure: `cmd/agent`, `cmd/ui`, `internal/*`, `frontend/`
 - [x] Add `.gitignore` for Go/Wails/build artifacts
@@ -217,6 +217,7 @@
 
 ### 8.3 Manual E2E
 
+- [x] Add Windows manual E2E runbook + helper probe script (`.docs/e2e-windows-manual.md`, `scripts/e2e_windows_manual.ps1`)
 - [ ] Two-machine end-to-end sync validation
 - [ ] Tray actions and notifications validation
 - [ ] UI responsiveness validation under network stress

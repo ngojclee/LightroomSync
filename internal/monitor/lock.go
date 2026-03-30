@@ -109,7 +109,7 @@ func (m *LockManager) WriteLock(ctx context.Context, info LockInfo) error {
 	if err := writeFileWithContext(ctx, tmpFile, []byte(info.String())); err != nil {
 		return fmt.Errorf("write lock tmp: %w", err)
 	}
-	if err := renameWithRetry(ctx, tmpFile, lockPath, 5, 5*time.Millisecond); err != nil {
+	if err := renameWithRetry(ctx, tmpFile, lockPath, 20, 8*time.Millisecond); err != nil {
 		os.Remove(tmpFile)
 		return fmt.Errorf("rename lock: %w", err)
 	}
