@@ -10,6 +10,14 @@ interface WailsMethodMap {
   ExecuteAction?: (action: string, payload?: string) => Promise<ActionEnvelope> | ActionEnvelope;
   SelectDirectory?: (title: string) => Promise<string> | string;
   SelectFile?: (title: string, filters: string) => Promise<string> | string;
+  ExitApplication?: () => Promise<ActionEnvelope> | ActionEnvelope;
+  QuitUIOnly?: () => Promise<void> | void;
+  IsAgentAlive?: () => Promise<boolean> | boolean;
+  LaunchAgent?: () => Promise<Record<string, string>> | Record<string, string>;
+  SetMinimizeToTray?: (enabled: boolean) => Promise<void> | void;
+  HideToTray?: () => Promise<void> | void;
+  MinimiseWindow?: () => Promise<void> | void;
+  ShowWindow?: () => Promise<void> | void;
 }
 
 interface WailsMainMap {
@@ -129,4 +137,79 @@ export async function selectFile(title: string, filters = ""): Promise<string> {
     console.error("Select file error:", err);
     return "";
   }
+}
+
+export async function exitApplication(): Promise<ActionEnvelope> {
+  const fn = window.go?.main?.WailsApp?.ExitApplication;
+  if (typeof fn === "function") {
+    try {
+      const result = await fn();
+      return normalizeEnvelope(result);
+    } catch {
+      return offlineEnvelope("Exit failed");
+    }
+  }
+  return offlineEnvelope("ExitApplication binding unavailable");
+}
+
+export async function quitUIOnly(): Promise<void> {
+  const fn = window.go?.main?.WailsApp?.QuitUIOnly;
+  if (typeof fn === "function") {
+    await fn();
+  }
+}
+
+export async function isAgentAlive(): Promise<boolean> {
+  const fn = window.go?.main?.WailsApp?.IsAgentAlive;
+  if (typeof fn === "function") {
+    try {
+      return await fn();
+    } catch {
+      return false;
+    }
+  }
+  // Fallback: try a ping via IPC
+  const result = await executeAction("ping");
+  return result.ok;
+}
+
+export async function launchAgent(): Promise<Record<string, string>> {
+  const fn = window.go?.main?.WailsApp?.LaunchAgent;
+  if (typeof fn === "function") {
+    try {
+      return await fn();
+    } catch (err) {
+      return { ok: "false", error: String(err) };
+    }
+  }
+  return { ok: "false", error: "LaunchAgent binding unavailable" };
+}
+
+export function syncMinimizeToTray(enabled: boolean): void {
+  const fn = window.go?.main?.WailsApp?.SetMinimizeToTray;
+  if (typeof fn === "function") {
+    fn(enabled);
+  }
+}
+
+export function hideToTray(): void {
+  const fn = window.go?.main?.WailsApp?.HideToTray;
+  if (typeof fn === "function") {
+    fn();
+  }
+}
+
+export function minimiseWindow(): void {
+  const fn = window.go?.main?.WailsApp?.MinimiseWindow;
+  if (typeof fn === "function") {
+    fn();
+  }
+}
+
+export async function discoverPresets(): Promise<string[]> {
+  const result = await executeAction("discover-presets");
+  if (result.ok && result.success && Array.isArray(result.data)) {
+    return result.data;
+  }
+  return [];
 }

@@ -257,6 +257,89 @@ Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_
 - [x] Implement Light/Dark mode functionality with 'btn-theme-toggle'
 - [x] Add Native Wails Browse Dialog bindings for Backup Directory and Catalog path selection
 - [x] Re-run `e2e_ui_command_parity.ps1` to ensure DOM refs and event bindings remain intact
+- [x] Preset category Auto-Discovery: Implement UI scan button and IPC bridge to traverse local Lightroom directories
+- [x] Layout Optimization: Fix UI cut-off issues by adding responsive padding and centering notification banner
+
+## UI and Tray Icon Collaboration Model (Chia nhóm các trường hợp GUI & Tray)
+The Agent runs locally in the background and is controlled via IPC connections from the UI. Below are the interaction models:
+
+* **Trường hợp 1: Mở UI khi Agent đã chạy (Bình thường)**
+  - UI kết nối tới `\\.\pipe\LightroomSyncIPC`.
+  - Agent trả về tín hiệu Status (Green/Active). UI cập nhật badge `Agent Active`.
+  - Khi UI gọi Scan Preset, Agent nhận request quét nhanh thư mục và trả Array cho UI hiển thị ngay lập tức.
+* **Trường hợp 2: Agent đang chạy nhưng gặp lỗi (Lỗi Sync/Mất kế nối mạng)**
+  - Agent tự động đổi Icon trên Taskbar sang màu Vàng/Đỏ tùy mức độ lỗi.
+  - UI (nếu đang bật) sẽ nhận Broadcast từ vòng lặp IPC để cập nhật lỗi chi tiết trên bảng Dashboard đồng bộ thời gian thực.
+* **Trường hợp 3: Mở UI nhưng Agent chưa chạy (Offline / Disconnected)**
+  - UI không thể kết nối tới Pipe, sẽ hiển thị màn hình Overlay `Agent Unreachable`.
+  - Cho phép người dùng chọn `Launch Agent`. UI sẽ khởi chạy độc lập `LightroomSyncAgent.exe`.
+  - Icon dưới Taskbar tự động xuất hiện. UI kết nối lại và mở màn hình chính.
+* **Trường hợp 4: Agent tự động Sync (Background Sync)**
+  - Khởi phát từ Agent (đủ interval hoặc bật Lightroom).
+  - Tray Taskbar icon nhấp nháy/Spin theo trạng thái Syncing.
+  - Nếu UI đang mở: Progress Card sẽ hiển thị chi tiết "Syncing..." mà không freeze giao diện.
+
+### Quản lý Trạng thái Cửa sổ (Window Management & Closing Behaviors)
+* **Trường hợp 5: Auto-start khởi động cùng Windows**
+  - Mặc định khởi chạy hoàn toàn ở chế độ ngầm (Minimized/Hidden). Lập tức xuất hiện Icon dưới Taskbar mà không hiển thị pop-up GUI, tránh làm phiền người dùng.
+* **Trường hợp 6: Thu nhỏ (Minimize GUI)**
+  - Khi nhấn nút dấu trừ (Minimize) `[-]` trên GUI, cửa sổ quản lý thu nhỏ xuống thanh Taskbar Windows như các ứng dụng hệ thống bình thường.
+* **Trường hợp 7: Đóng GUI (Close Window `[X]`) VỚI tùy chọn "Close to Tray" đang bật**
+  - Cửa sổ UI `LightroomSync.exe` đóng và giải phóng RAM đồ họa.
+  - Tuy nhiên, `LightroomSyncAgent.exe` không bị ảnh hưởng, tiếp tục duy trì hoạt động và giữ biểu tượng ở System Tray.
+* **Trường hợp 8: Đóng GUI (Close Window `[X]`) NẾU KHÔNG bật tùy chọn "Close to Tray"**
+  - Nút (X) vừa đóng ngay lập tức tiến trình `LightroomSync.exe` (Wails UI), vừa phát tín hiệu IPC/System Kill để triệt tiêu trực tiếp tiến trình ngầm `LightroomSyncAgent.exe`.
+  - Ứng dụng thoát sạch 100% kèm mất Icon dưới Tray.
+* **Trường hợp 9: Quit từ Tray (Exit Application)**
+  - Nếu người dùng chuột phải vào Icon System Tray > chọn nút `Exit / Quit`.
+  - Agent gửi signal cảnh báo EOF cho `LightroomSync.exe` (nếu GUI đang bật mặt tiền) để Shutdown UI.
+  - Agent đóng Named Pipe và tự động kết liễu toàn bộ hệ sinh thái phần mềm. Thoát sạch hoàn toàn GUI lẫn Tray.
+
+## Phase 10: QC Round 1 — Build & Lifecycle Validation (2026-03-30)
+
+### 10.1 Build Pipeline Fixes
+- [x] Fix `vite.config.ts` outDir: `'../cmd/ui/dist'` → `'dist'` (frontend/dist/)
+- [x] Fix `wails_runtime.go` embed: `all:dist` → `all:frontend/dist`
+- [x] Fix `build_windows.ps1`: default to wails, remove harness path, fix binary name to `LightroomSync.exe`
+- [x] Fix build order: Wails UI first, then Agent (avoids `-clean` wiping agent)
+- [x] Remove `-clean` from wails build (avoids Windows file locking issues)
+- [x] Delete stale `bin/` (root) and `cmd/ui/dist/` artifacts
+- [x] Clean `temp_scripts/` phase0_2 run artifacts and wails_template
+- [x] Verify clean build produces `build/bin/LightroomSync.exe` + `build/bin/LightroomSyncAgent.exe` with correct version
+
+### 10.2 Tray Icon Fix
+- [x] Fix `resolveUIExecutable()` in `cmd/agent/main.go`: add `LightroomSync.exe` as first candidate (was only searching for `LightroomSyncUI.exe`)
+- [x] Verify: Agent log shows `Tray bootstrap started (ui=...LightroomSync.exe)`
+- [x] Guard tray script PID checks in `internal/tray/manager_windows.go` to run only when `AgentPid` is a positive integer
+- [ ] Manual: Confirm tray icon is visible in system tray area -> **USER CHECK**
+- [ ] Manual: Confirm tray "Open UI" launches the correct UI window -> **USER CHECK**
+- [ ] Manual: Confirm tray status badge updates (Green/Yellow/Red) -> **USER CHECK**
+
+### 10.3 Window Lifecycle Validation
+- [ ] Manual: Native `[-]` minimize button minimizes to taskbar -> **USER CHECK**
+- [ ] Manual: `[X]` close with "minimize to tray" ON → window hides, tray icon stays -> **USER CHECK**
+- [ ] Manual: `[X]` close with "minimize to tray" OFF → full app exit -> **USER CHECK**
+- [x] Code: Sidebar `btn-hide-to-tray` now calls `MinimiseWindow()` (`runtime.WindowMinimise`) and label changed to "Minimize"
+- [ ] Manual: Sidebar "Minimize" button minimizes to taskbar (window remains on taskbar) -> **USER CHECK**
+- [ ] Manual: Sidebar "Close UI" button → UI exits, agent keeps running -> **USER CHECK**
+- [ ] Manual: Sidebar "Exit All" button → both UI + agent stop -> **USER CHECK**
+- [ ] Manual: Tray "Exit Agent" → both tray + agent stop -> **USER CHECK**
+
+### 10.4 Preset Scan Validation
+- [x] Verify `discover-presets` IPC returns categories (confirmed: 18 categories from Lightroom install)
+- [x] Code: `scanPresets()` now auto-calls `saveConfig()` and shows success banner `"X preset categories discovered and saved."`
+- [ ] Manual: Click "Scan" button in Settings → categories populate input box -> **USER CHECK**
+
+### 10.6 Startup Connection UX Validation
+- [x] Code: Added 3s startup grace period + `disconnectFailCount >= 3` threshold before red disconnected state/overlay
+- [ ] Manual: Startup badge shows "Connecting..." then transitions to "Connected" without red flash -> **USER CHECK**
+
+### 10.5 Build Output Location
+- **Canonical path**: `D:\Python\projects\LightroomSync\build\bin\`
+  - `LightroomSync.exe` — Wails UI (dark theme)
+  - `LightroomSyncAgent.exe` — Background agent + system tray
+  - `build-metadata.json` — Build provenance
+- **Old `bin/` at project root**: DELETED (was stale old build)
 
 ## Post-Launch
 

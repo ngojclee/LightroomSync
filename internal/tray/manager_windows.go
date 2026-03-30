@@ -79,7 +79,7 @@ func (m *Manager) Start(_ context.Context) error {
 		case err := <-exitCh:
 			lastErr = fmt.Errorf("%s exited early: %w", shell, err)
 			continue
-		case <-time.After(1200 * time.Millisecond):
+		case <-time.After(2000 * time.Millisecond):
 		}
 
 		m.cmd = cmd
@@ -127,9 +127,7 @@ func renderPowerShellTrayScript(opts Options) string {
 	statusPath := psSingleQuote(opts.StatusPath)
 
 	return fmt.Sprintf(`
-$ErrorActionPreference = 'SilentlyContinue'
-Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Drawing
+$ErrorActionPreference = 'Stop'
 
 $AppName = '%s'
 $AgentPid = %d
@@ -140,16 +138,33 @@ $TrayDir = [System.IO.Path]::GetDirectoryName($StatusFile)
 if ([string]::IsNullOrWhiteSpace($TrayDir)) {
     $TrayDir = $env:TEMP
 }
+
+# Ensure log directory exists before anything else
+try { [System.IO.Directory]::CreateDirectory($TrayDir) | Out-Null } catch {}
+
 $TrayLog = [System.IO.Path]::Combine($TrayDir, 'tray-host.log')
 
 function Write-TrayLog([string]$message) {
     try {
         $line = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + ' ' + $message
-        Add-Content -LiteralPath $TrayLog -Value $line -Encoding UTF8
+        [System.IO.File]::AppendAllText($TrayLog, $line + [Environment]::NewLine)
     } catch {}
 }
 
 Write-TrayLog ('tray host booting (ui=' + $UIExe + ', pid=' + $AgentPid + ')')
+
+# Load WinForms assemblies with error capture
+try {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    Add-Type -AssemblyName System.Drawing -ErrorAction Stop
+    Write-TrayLog 'assemblies loaded OK'
+} catch {
+    Write-TrayLog ('FATAL: assembly load failed: ' + $_.Exception.Message)
+    Start-Sleep -Seconds 60
+    exit 1
+}
+
+[System.Windows.Forms.Application]::EnableVisualStyles()
 
 function Invoke-UiAction([string]$action) {
     if ([string]::IsNullOrWhiteSpace($UIExe)) { return }
@@ -158,22 +173,44 @@ function Invoke-UiAction([string]$action) {
     } catch {}
 }
 
+# Resolve best icon — try UI exe, then agent exe, then system fallback
+$resolvedIcon = $null
+$iconCandidates = @()
+if (-not [string]::IsNullOrWhiteSpace($UIExe)) { $iconCandidates += $UIExe }
+# Also try agent exe in same directory
+$agentDir = [System.IO.Path]::GetDirectoryName($UIExe)
+if (-not [string]::IsNullOrWhiteSpace($agentDir)) {
+    $iconCandidates += [System.IO.Path]::Combine($agentDir, 'LightroomSyncAgent.exe')
+}
+foreach ($candidate in $iconCandidates) {
+    try {
+        if (Test-Path $candidate) {
+            $resolvedIcon = [System.Drawing.Icon]::ExtractAssociatedIcon($candidate)
+            if ($null -ne $resolvedIcon) {
+                Write-TrayLog ('icon extracted from: ' + $candidate)
+                break
+            }
+        }
+    } catch {
+        Write-TrayLog ('icon extract failed for: ' + $candidate + ' - ' + $_.Exception.Message)
+    }
+}
+if ($null -eq $resolvedIcon) {
+    $resolvedIcon = [System.Drawing.SystemIcons]::Application
+    Write-TrayLog 'using fallback system icon'
+}
+
+$ErrorActionPreference = 'SilentlyContinue'
+
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Text = $AppName
-try {
-    if (-not [string]::IsNullOrWhiteSpace($UIExe) -and (Test-Path $UIExe)) {
-        $notify.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($UIExe)
-    } else {
-        $notify.Icon = [System.Drawing.SystemIcons]::Application
-    }
-} catch {
-    $notify.Icon = [System.Drawing.SystemIcons]::Application
-}
-if ($null -eq $notify.Icon) {
-    $notify.Icon = [System.Drawing.SystemIcons]::Application
-}
+$notify.Icon = $resolvedIcon
+$notify.BalloonTipTitle = $AppName
+$notify.BalloonTipText = 'Agent is running'
+# Force visibility with standard Windows workaround
 $notify.Visible = $true
 $notify.Visible = $false
+Start-Sleep -Milliseconds 100
 $notify.Visible = $true
 Write-TrayLog 'notify icon visible=true'
 
@@ -242,7 +279,7 @@ function Get-BadgedIcon {
 $OriginalIcon = $notify.Icon
 
 $timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = 1000
+$timer.Interval = 1500
 $timer.Add_Tick({
     if (($AgentPid -as [int]) -gt 0) {
         $alive = Get-Process -Id $AgentPid -ErrorAction SilentlyContinue
@@ -266,7 +303,9 @@ $timer.Add_Tick({
                     $statusText = $statusText.Substring(0, 40) + '...'
                 }
                 $statusItem.Text = 'Status: ' + $statusText
-                $notify.Text = (($AppName + ' - ' + $statusText).Substring(0, [Math]::Min(($AppName + ' - ' + $statusText).Length, 63)))
+                $tooltipText = $AppName + ' - ' + $statusText
+                if ($tooltipText.Length -gt 63) { $tooltipText = $tooltipText.Substring(0, 63) }
+                $notify.Text = $tooltipText
                 
                 if ($obj.tray_color) {
                     $tc = [string]$obj.tray_color
@@ -288,6 +327,7 @@ $timer.Add_Tick({
 })
 $timer.Start()
 
+Write-TrayLog 'entering WinForms message loop'
 [System.Windows.Forms.Application]::Run()
 Write-TrayLog 'tray host exited'
 $notify.Visible = $false

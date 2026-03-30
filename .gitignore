@@ -10,11 +10,9 @@ go.work
 go.work.sum
 
 # Build output
-/build/bin/
-/build/release/
-/build/installer/
-/build/e2e/
+/build/
 /dist/
+/.gocache/
 
 # Frontend
 frontend/node_modules/

@@ -81,7 +81,7 @@ export const appTemplate = `
 </div>
 
 <!-- Main Content Canvas -->
-<main class="ml-64 pt-24 pb-32 px-12 h-screen overflow-y-auto relative box-border">
+<main class="ml-64 pt-24 pb-8 px-12 h-screen overflow-y-auto relative box-border">
 
   <!-- Status Panel -->
   <div id="panel-status" class="tab-panel">

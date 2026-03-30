@@ -67,18 +67,8 @@ func findWindowByTitle(title string) (uintptr, error) {
 }
 
 func windowTitlesForRuntime(runtimeMode string) []string {
-	switch runtimeMode {
-	case uiRuntimeWails:
-		return []string{
-			"LightroomSync",
-			"Lightroom Sync",
-			uiHarnessWindowTitle,
-		}
-	default:
-		return []string{
-			uiHarnessWindowTitle,
-			"LightroomSync",
-			"Lightroom Sync",
-		}
+	return []string{
+		"LightroomSync",
+		"Lightroom Sync",
 	}
 }

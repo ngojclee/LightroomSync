@@ -63,6 +63,10 @@ func (s *Service) ExecuteAction(action, payload string) ActionEnvelope {
 		return s.CheckUpdate()
 	case "download-update":
 		return s.DownloadUpdate(payload)
+	case "shutdown-agent":
+		return s.ShutdownAgent()
+	case "discover-presets":
+		return s.DiscoverPresets()
 	default:
 		return badRequestEnvelope(s.now, fmt.Sprintf("unsupported action: %s", action))
 	}
@@ -159,7 +163,15 @@ func (s *Service) DownloadUpdate(payload string) ActionEnvelope {
 		}
 	}
 
-	return s.callCommand(2*time.Second, ipc.CmdDownloadUpdate, body)
+	return s.callCommand(4*time.Minute, ipc.CmdDownloadUpdate, body)
+}
+
+func (s *Service) ShutdownAgent() ActionEnvelope {
+	return s.callCommand(2*time.Second, ipc.CmdShutdownAgent, nil)
+}
+
+func (s *Service) DiscoverPresets() ActionEnvelope {
+	return s.callCommand(5*time.Second, ipc.CmdDiscoverPresets, nil)
 }
 
 func (s *Service) callCommand(timeout time.Duration, command ipc.CommandType, payload any) ActionEnvelope {

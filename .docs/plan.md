@@ -301,3 +301,19 @@ To ship the real GUI, we need **6 implementation steps**:
 - **Theme Engine**: Support OS-native / togglable Dark/Light modes cleanly.
 - **Native OS Elements**: Implement Wails native Directory/File picking dialogs directly into Settings inputs to enhance usability.
 - **Goal**: Ship a highly polished GUI that feels premium upon first launch without sacrificing technical robustness.
+
+## 13. UI and Tray Icon Collaboration Architecture
+
+The `LightroomSyncAgent.exe` runs continuously via the system tray, while `LightroomSync.exe` acts as an ephemeral command and control dashboard. They coordinate via named pipes:
+
+1. **Normal Startup (Agent First)**: When the UI loads, it opens the IPC connection. The UI immediately fetches status (`GetStatus`) displaying real-time metrics, while the Agent maintains the System Tray Icon indicating stable health (Green).
+2. **Offline Mode (UI First)**: If the Agent is not running, the UI displays the `Agent Unreachable` overlay. The Tray icon is absent. The user clicks `Launch Agent` from the UI, spawning the Agent process and restoring the IPC link and System Tray icon dynamically.
+3. **Task-Driven Triggers (Scan/Sync)**: When the user requests a "Scan" from Settings, the UI dispatches `discover_presets` via the Wails Go binding (UI API loop), sending an IPC envelope. The Agent resolves the filesystem on the host side, returns the list to the UI, and does not alter the Tray state.
+4. **Monitoring and Errors**: Network failures or catalog conflicts trigger state transitions in the Agent event loop. The Agent updates the Taskbar Tray icon (Yellow/Red) immediately and broadcasts state. If the UI is open, the periodic Dashboard poll fetches this new state and displays the alert in the UI concurrently.
+
+### Window Management & State Operations
+5. **Autostart / Background Load**: To avoid disturbing the user, app launches at startup in explicit Background Mode—Tray icon appears silently, no UI window opens.
+6. **Minimize (`[-]`)**: Native OS minimize event triggers UI to collapse directly to the Windows Taskbar natively.
+7. **Close to Tray (`[X]`) - Setting Enabled**: Clicking Close will terminate the `LightroomSync.exe` process (and Wails WebView) completely, freeing GPU/RAM. However, `LightroomSyncAgent.exe` persists silently rendering the Tray Status.
+8. **Close Entirely (`[X]`) - Setting Disabled**: If the user desires a clean exit upon GUI closure, clicking (X) destroys the Wails UI and transmits a synchronous kill-switch sequence to `LightroomSyncAgent.exe`. Entire tech-stack terminates instantaneously.
+9. **Tray Context Quit**: When right-clicking the System Tray icon and selecting `Exit`, the Agent signals its named pipe clients before committing suicide. The `LightroomSync.exe` (if open) catches an immediate EOF closure panic, tearing itself down to prevent zombie views.

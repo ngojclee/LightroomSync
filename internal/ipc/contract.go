@@ -29,6 +29,8 @@ const (
 	CmdResumeSync     CommandType = "resume_sync"
 	CmdCheckUpdate    CommandType = "check_update"
 	CmdDownloadUpdate CommandType = "download_update"
+	CmdShutdownAgent  CommandType = "shutdown_agent"
+	CmdDiscoverPresets CommandType = "discover_presets"
 )
 
 // Request is a message from UI to Agent.

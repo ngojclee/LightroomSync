@@ -1,4 +1,4 @@
-//go:build wails && !windows
+//go:build !windows
 
 package main
 

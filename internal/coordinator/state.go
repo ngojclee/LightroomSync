@@ -31,7 +31,7 @@ type AppState struct {
 func NewAppState() *AppState {
 	return &AppState{
 		trayColor:  "green",
-		statusText: "Sẵn sàng",
+		statusText: "Ready",
 	}
 }
 
@@ -162,15 +162,15 @@ func (s *AppState) recomputeDerivedStatusLocked() {
 	switch {
 	case s.syncInProgress:
 		s.trayColor = "red"
-		s.statusText = "Đang đồng bộ..."
+		s.statusText = "Syncing..."
 	case s.syncPaused:
 		s.trayColor = "orange"
-		s.statusText = "Đã tạm dừng đồng bộ"
+		s.statusText = "Sync Paused"
 	case s.lightroomRunning:
 		s.trayColor = "blue"
-		s.statusText = "Lightroom đang chạy"
+		s.statusText = "Lightroom Running"
 	default:
 		s.trayColor = "green"
-		s.statusText = "Sẵn sàng"
+		s.statusText = "Ready"
 	}
 }
