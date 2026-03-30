@@ -2,7 +2,9 @@ param(
     [string]$Version = "2.0.0.0",
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [string]$OutputDir = "build/bin",
-    [switch]$SkipTests
+    [string]$ReleaseDir = "build/release",
+    [switch]$SkipTests,
+    [switch]$SkipReleaseAssets
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +20,11 @@ if (-not (Test-Path -LiteralPath $ProjectRoot)) {
 
 $resolvedOutputDir = Join-Path $ProjectRoot $OutputDir
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
+
+$resolvedReleaseDir = Join-Path $ProjectRoot $ReleaseDir
+if (-not $SkipReleaseAssets) {
+    New-Item -ItemType Directory -Force -Path $resolvedReleaseDir | Out-Null
+}
 
 function Resolve-DefaultGoPath {
     param([string]$Root)
@@ -142,10 +149,31 @@ try {
     $metadataPath = Join-Path $resolvedOutputDir "build-metadata.json"
     $buildMetadata | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $metadataPath -Encoding UTF8
 
+    if (-not $SkipReleaseAssets) {
+        $releasePrefix = "LightroomSync-v$Version-windows-amd64"
+        $releaseAgentPath = Join-Path $resolvedReleaseDir "LightroomSyncAgent-v$Version-windows-amd64.exe"
+        $releaseUIPath = Join-Path $resolvedReleaseDir "LightroomSyncUI-v$Version-windows-amd64.exe"
+        $releaseMetadataPath = Join-Path $resolvedReleaseDir "$releasePrefix-build-metadata.json"
+        $releaseZipPath = Join-Path $resolvedReleaseDir "$releasePrefix.zip"
+
+        Copy-Item -LiteralPath $agentPath -Destination $releaseAgentPath -Force
+        Copy-Item -LiteralPath $uiPath -Destination $releaseUIPath -Force
+        Copy-Item -LiteralPath $metadataPath -Destination $releaseMetadataPath -Force
+
+        $zipInputs = @($releaseAgentPath, $releaseUIPath, $releaseMetadataPath)
+        if (Test-Path -LiteralPath $releaseZipPath) {
+            Remove-Item -LiteralPath $releaseZipPath -Force
+        }
+        Compress-Archive -LiteralPath $zipInputs -DestinationPath $releaseZipPath -CompressionLevel Optimal
+    }
+
     Write-Host "[build] OK"
     Write-Host "  Agent : $agentPath"
     Write-Host "  UI    : $uiPath"
     Write-Host "  Meta  : $metadataPath"
+    if (-not $SkipReleaseAssets) {
+        Write-Host "  Release Dir : $resolvedReleaseDir"
+    }
 } finally {
     Pop-Location
 }

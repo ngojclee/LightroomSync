@@ -196,9 +196,9 @@
 
 ### 7.3 Release
 
-- [ ] Add GitHub Actions build workflow
-- [ ] Add release asset naming convention
-- [ ] Prepare optional signing step
+- [x] Add GitHub Actions build workflow
+- [x] Add release asset naming convention
+- [x] Prepare optional signing step
 
 ## Phase 8: Testing & Verification
 
