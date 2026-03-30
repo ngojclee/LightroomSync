@@ -220,6 +220,7 @@
 - [x] Add Windows manual E2E runbook + helper probe script (`.docs/e2e-windows-manual.md`, `scripts/e2e_windows_manual.ps1`)
 - [x] Add installer regression automation helper (`scripts/e2e_installer_regression.ps1`) with JSON/log evidence output
 - [x] Add two-machine snapshot compare helper (`scripts/e2e_two_machine_compare.ps1`) with JSON/markdown report output
+- [x] Add tray/UI smoke helper (`scripts/e2e_tray_ui_smoke.ps1`) with pass/fail JSON evidence output
 - [ ] Two-machine end-to-end sync validation
 - [ ] Tray actions and notifications validation
 - [ ] UI responsiveness validation under network stress

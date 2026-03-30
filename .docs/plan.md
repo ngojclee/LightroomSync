@@ -41,6 +41,7 @@
 - Phase 8.3 execution tooling is now added with a Windows manual E2E runbook (`.docs/e2e-windows-manual.md`) and a reusable probe script (`scripts/e2e_windows_manual.ps1`) for snapshot and latency evidence capture.
 - Installer regression validation tooling is now added via `scripts/e2e_installer_regression.ps1`, including silent install/upgrade/uninstall flow checks and evidence artifacts (JSON + installer logs) under `build/e2e`.
 - Two-machine validation aggregation tooling is now added via `scripts/e2e_two_machine_compare.ps1` to compare cross-host snapshots/latency reports and emit pass/fail evidence in JSON and markdown.
+- Tray/UI smoke validation tooling is now added via `scripts/e2e_tray_ui_smoke.ps1`, covering IPC readiness, `sync_now` command reachability, tray status publication, and optional UI relaunch focus assertion.
 - Agent now has a tray bootstrap module (`internal/tray`) with Windows NotifyIcon host, menu actions (`Open UI`, `Sync Now`, `Exit Agent`), and status label updates via shared status file.
 - Lock manager now tracks internal `session_id` and monotonic `epoch` metadata for heartbeat sequencing while preserving legacy on-disk lock wire format (`STATUS|MACHINE|TIMESTAMP`).
 - Phase 0.2 architecture spike automation is now added via `scripts/phase0_2_architecture_spike.ps1`, with runbook in `.docs/phase0-2-architecture-spike.md` to validate tray bootstrap + UI focus + IPC roundtrip.

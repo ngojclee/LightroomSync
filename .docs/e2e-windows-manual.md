@@ -90,6 +90,22 @@ On one machine:
 4. Exit Agent from tray and verify lock OFFLINE write + process shutdown.
 5. Re-launch Agent and verify tray state returns correctly.
 
+Automated smoke helper (IPC + tray status file + UI relaunch focus check):
+
+```powershell
+pwsh -File scripts/e2e_tray_ui_smoke.ps1
+```
+
+Headless fallback (skips UI focus assertion but keeps IPC/tray checks):
+
+```powershell
+pwsh -File scripts/e2e_tray_ui_smoke.ps1 -SkipUIFocus
+```
+
+Output file:
+
+- `build/e2e/tray-ui-smoke-<HOST>-<TIMESTAMP>.json`
+
 ## 6. Installer Upgrade/Uninstall Regression
 
 Using produced installer:
