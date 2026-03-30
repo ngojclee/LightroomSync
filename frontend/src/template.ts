@@ -406,7 +406,7 @@ export const appTemplate = `
           </div>
         </div>
 
-        <p class="text-[10px] text-on-surface-variant/40 font-mono">&copy; 2024-2026 Le Ngoc. All rights reserved.</p>
+        <p class="text-[10px] text-on-surface-variant/40 font-mono" id="about-copyright">&copy; 2026 Le Ngoc. All rights reserved.</p>
       </div>
   </div>
 

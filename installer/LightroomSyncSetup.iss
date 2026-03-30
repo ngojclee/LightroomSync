@@ -28,6 +28,7 @@ AppName=Lightroom Sync
 AppVersion={#AppVersion}
 AppVerName=Lightroom Sync {#AppVersion}
 DefaultDirName={autopf64}\Lightroom Sync
+DisableDirPage=no
 DefaultGroupName=Lightroom Sync
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#UIBinaryName}

@@ -10,6 +10,7 @@ interface WailsMethodMap {
   ExecuteAction?: (action: string, payload?: string) => Promise<ActionEnvelope> | ActionEnvelope;
   SelectDirectory?: (title: string) => Promise<string> | string;
   SelectFile?: (title: string, filters: string) => Promise<string> | string;
+  AppInfo?: () => Promise<Record<string, string>> | Record<string, string>;
   ExitApplication?: () => Promise<ActionEnvelope> | ActionEnvelope;
   QuitUIOnly?: () => Promise<void> | void;
   IsAgentAlive?: () => Promise<boolean> | boolean;
@@ -140,16 +141,28 @@ export async function selectFile(title: string, filters = ""): Promise<string> {
 }
 
 export async function exitApplication(): Promise<ActionEnvelope> {
-  const fn = window.go?.main?.WailsApp?.ExitApplication;
-  if (typeof fn === "function") {
+  const method = window.go?.main?.WailsApp?.ExitApplication;
+  if (typeof method === "function") {
     try {
-      const result = await fn();
-      return normalizeEnvelope(result);
-    } catch {
-      return offlineEnvelope("Exit failed");
+      const res = await method();
+      return normalizeEnvelope(res);
+    } catch (err) {
+      return offlineEnvelope(err instanceof Error ? err.message : String(err));
     }
   }
-  return offlineEnvelope("ExitApplication binding unavailable");
+  return offlineEnvelope("Exit binding not found.");
+}
+
+export async function getAppInfo(): Promise<Record<string, string>> {
+  const method = window.go?.main?.WailsApp?.AppInfo;
+  if (typeof method === "function") {
+    try {
+      return await method();
+    } catch {
+      return { version: "Unknown" };
+    }
+  }
+  return { version: "Unknown" };
 }
 
 export async function quitUIOnly(): Promise<void> {

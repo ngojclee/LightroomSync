@@ -1,4 +1,4 @@
-import { executeAction, selectDirectory, selectFile, exitApplication, launchAgent, syncMinimizeToTray, discoverPresets } from "./bridge";
+import { executeAction, selectDirectory, selectFile, exitApplication, launchAgent, syncMinimizeToTray, discoverPresets, getAppInfo } from "./bridge";
 import { appTemplate } from "./template";
 import type {
   ActionEnvelope,
@@ -100,6 +100,7 @@ interface Refs {
   btnLaunchAgent: HTMLButtonElement;
   btnDismissOverlay: HTMLButtonElement;
   agentOverlayStatus: HTMLParagraphElement;
+  sidebarVersion: HTMLParagraphElement;
 }
 
 function envValue(key: string, fallback = "unknown"): string {
@@ -367,7 +368,8 @@ class FrontendShell {
       agentOverlay: byId<HTMLDivElement>("agent-overlay"),
       btnLaunchAgent: byId<HTMLButtonElement>("btn-launch-agent"),
       btnDismissOverlay: byId<HTMLButtonElement>("btn-dismiss-overlay"),
-      agentOverlayStatus: byId<HTMLParagraphElement>("agent-overlay-status")
+      agentOverlayStatus: byId<HTMLParagraphElement>("agent-overlay-status"),
+      sidebarVersion: byId<HTMLParagraphElement>("sidebar-version"),
     };
   }
 
@@ -1106,11 +1108,18 @@ class FrontendShell {
   }
 
   private async bootstrap(): Promise<void> {
+    const info = await getAppInfo();
+    if (info && info.version && info.version !== "Unknown") {
+      this.refs.sidebarVersion.textContent = `v${info.version}`;
+      const aboutVersion = document.getElementById("about-version");
+      if (aboutVersion) aboutVersion.textContent = `Version ${info.version}`;
+    }
+
     await this.refreshStatus({ quietError: true, silent: true });
     await this.refreshConfig({ quietError: true, silent: true });
 
     // Auto-launch agent if not connected — user should only need to open one app
-    if (this.shouldShowDisconnectedState()) {
+    if (!this.state.connected) {
       try {
         const result = await launchAgent();
         if (result.ok === "true") {

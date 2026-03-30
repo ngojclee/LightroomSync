@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/ngojclee/lightroom-sync/internal/ipc"
@@ -110,6 +111,8 @@ func (a *WailsApp) LaunchAgent() map[string]string {
 	}
 
 	cmd := exec.Command(agentPath)
+	cmd.Dir = filepath.Dir(agentPath)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x08000000} // DETACHED_PROCESS
 	cmd.Stdout = nil
 	cmd.Stderr = nil
 	if err := cmd.Start(); err != nil {
@@ -119,7 +122,7 @@ func (a *WailsApp) LaunchAgent() map[string]string {
 	go func() { _ = cmd.Wait() }()
 
 	// Wait a bit for agent to initialize IPC
-	time.Sleep(1500 * time.Millisecond)
+	time.Sleep(2000 * time.Millisecond)
 
 	alive := a.IsAgentAlive()
 	return map[string]string{

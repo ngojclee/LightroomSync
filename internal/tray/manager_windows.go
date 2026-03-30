@@ -239,12 +239,13 @@ $syncNow.Add_Click({ Invoke-UiAction 'sync-now' })
 $menu.Items.Add($syncNow) | Out-Null
 
 $menu.Items.Add('-') | Out-Null
-$exitItem = New-Object System.Windows.Forms.ToolStripMenuItem('Exit Agent')
+$exitItem = New-Object System.Windows.Forms.ToolStripMenuItem('Exit App')
 $exitItem.Add_Click({
     try {
         if (($AgentPid -as [int]) -gt 0) {
             Stop-Process -Id $AgentPid -Force -ErrorAction SilentlyContinue
         }
+        Stop-Process -Name 'LightroomSync' -Force -ErrorAction SilentlyContinue
     } catch {}
 })
 $menu.Items.Add($exitItem) | Out-Null
