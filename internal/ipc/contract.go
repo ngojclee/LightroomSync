@@ -111,6 +111,26 @@ type LogEntry struct {
 	Message   string    `json:"message"`
 }
 
+// StreamLogEntry is a buffered log line with monotonically increasing ID.
+type StreamLogEntry struct {
+	ID        int64     `json:"id"`
+	Timestamp time.Time `json:"timestamp"`
+	Level     string    `json:"level"` // INFO, WARN, ERROR, DEBUG
+	Message   string    `json:"message"`
+}
+
+// SubscribeLogsPayload requests buffered logs after a cursor ID.
+type SubscribeLogsPayload struct {
+	AfterID int64 `json:"after_id,omitempty"`
+	Limit   int   `json:"limit,omitempty"`
+}
+
+// SubscribeLogsResult is the subscribe_logs IPC response payload.
+type SubscribeLogsResult struct {
+	Entries []StreamLogEntry `json:"entries"`
+	LastID  int64            `json:"last_id"`
+}
+
 // SyncBackupPayload is the payload for CmdSyncBackup.
 type SyncBackupPayload struct {
 	ZipPath string `json:"zip_path"`

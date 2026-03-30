@@ -31,7 +31,7 @@ type actionEnvelope struct {
 }
 
 func main() {
-	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync)")
+	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync|subscribe-logs)")
 	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
 	flag.Parse()
@@ -100,6 +100,8 @@ func runAction(action, payload, pipeName string) actionEnvelope {
 		return actionPauseSync(pipeName)
 	case "resume-sync":
 		return actionResumeSync(pipeName)
+	case "subscribe-logs":
+		return actionSubscribeLogs(pipeName, payload)
 	default:
 		return actionEnvelope{
 			OK:      false,
@@ -217,6 +219,55 @@ func actionResumeSync(pipeName string) actionEnvelope {
 	defer cancel()
 
 	resp, err := ipc.Call(ctx, pipeName, ipc.Request{Command: ipc.CmdResumeSync})
+	if err != nil {
+		return actionEnvelope{
+			OK:      false,
+			Success: false,
+			Code:    ipc.CodeAgentOffline,
+			Error:   err.Error(),
+			Server:  time.Now().Format(time.RFC3339),
+		}
+	}
+
+	return actionEnvelope{
+		OK:      true,
+		ID:      resp.ID,
+		Success: resp.Success,
+		Code:    resp.Code,
+		Error:   resp.Error,
+		Data:    resp.Data,
+		Server:  time.Now().Format(time.RFC3339),
+	}
+}
+
+func actionSubscribeLogs(pipeName, payload string) actionEnvelope {
+	body := ipc.SubscribeLogsPayload{
+		AfterID: 0,
+		Limit:   120,
+	}
+	payload = strings.TrimSpace(payload)
+	if payload != "" {
+		if err := json.Unmarshal([]byte(payload), &body); err != nil {
+			return actionEnvelope{
+				OK:      false,
+				Success: false,
+				Code:    ipc.CodeBadRequest,
+				Error:   fmt.Sprintf("invalid payload JSON: %v", err),
+				Server:  time.Now().Format(time.RFC3339),
+			}
+		}
+	}
+	if body.Limit <= 0 {
+		body.Limit = 120
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	resp, err := ipc.Call(ctx, pipeName, ipc.Request{
+		Command: ipc.CmdSubscribeLogs,
+		Payload: body,
+	})
 	if err != nil {
 		return actionEnvelope{
 			OK:      false,
@@ -615,14 +666,37 @@ $lstBackups.Location = New-Object System.Drawing.Point(22, 214)
 $lstBackups.Size = New-Object System.Drawing.Size(440, 430)
 $form.Controls.Add($lstBackups)
 
+$lblOutputTitle = New-Object System.Windows.Forms.Label
+$lblOutputTitle.Text = 'Action Output'
+$lblOutputTitle.AutoSize = $true
+$lblOutputTitle.Location = New-Object System.Drawing.Point(474, 214)
+$form.Controls.Add($lblOutputTitle)
+
 $txtOutput = New-Object System.Windows.Forms.TextBox
 $txtOutput.Multiline = $true
 $txtOutput.ReadOnly = $true
 $txtOutput.ScrollBars = 'Vertical'
 $txtOutput.Font = New-Object System.Drawing.Font('Consolas', 9)
-$txtOutput.Location = New-Object System.Drawing.Point(474, 214)
-$txtOutput.Size = New-Object System.Drawing.Size(488, 430)
+$txtOutput.Location = New-Object System.Drawing.Point(474, 232)
+$txtOutput.Size = New-Object System.Drawing.Size(488, 120)
 $form.Controls.Add($txtOutput)
+
+$lblLogsTitle = New-Object System.Windows.Forms.Label
+$lblLogsTitle.Text = 'Agent Logs (subscribe_logs)'
+$lblLogsTitle.AutoSize = $true
+$lblLogsTitle.Location = New-Object System.Drawing.Point(474, 360)
+$form.Controls.Add($lblLogsTitle)
+
+$txtLogs = New-Object System.Windows.Forms.TextBox
+$txtLogs.Multiline = $true
+$txtLogs.ReadOnly = $true
+$txtLogs.ScrollBars = 'Vertical'
+$txtLogs.Font = New-Object System.Drawing.Font('Consolas', 8.8)
+$txtLogs.Location = New-Object System.Drawing.Point(474, 378)
+$txtLogs.Size = New-Object System.Drawing.Size(488, 266)
+$form.Controls.Add($txtLogs)
+
+$script:lastLogID = 0
 
 function Set-Reachability([bool]$ok) {
     if ($ok) {
@@ -661,14 +735,51 @@ function Render-Backups($items) {
     }
 }
 
-function Invoke-Action([string]$action, [string]$payload = '') {
+function Render-LogEntries($items) {
+    if (-not $items) { return }
+    foreach ($item in $items) {
+        $idText = '?'
+        if ($null -ne $item.id) { $idText = [string]$item.id }
+        $levelText = 'INFO'
+        if ($item.level) { $levelText = [string]$item.level }
+        $timestampText = '-'
+        if ($item.timestamp) { $timestampText = [string]$item.timestamp }
+        $messageText = ''
+        if ($item.message) { $messageText = [string]$item.message }
+
+        $line = ('#{0} [{1}] {2} {3}' -f $idText, $levelText, $timestampText, $messageText)
+        $txtLogs.AppendText($line + [Environment]::NewLine)
+    }
+
+    $lines = $txtLogs.Lines
+    if ($lines.Count -gt 500) {
+        $start = $lines.Count - 400
+        if ($start -lt 0) { $start = 0 }
+        $txtLogs.Lines = $lines[$start..($lines.Count - 1)]
+    }
+    $txtLogs.SelectionStart = $txtLogs.TextLength
+    $txtLogs.ScrollToCaret()
+}
+
+function Pull-Logs() {
+    $payloadObj = @{
+        after_id = [int64]$script:lastLogID
+        limit = 120
+    }
+    $payloadJson = $payloadObj | ConvertTo-Json -Compress
+    Invoke-Action 'subscribe-logs' $payloadJson $false
+}
+
+function Invoke-Action([string]$action, [string]$payload = '', [bool]$renderRaw = $true) {
     try {
         if ([string]::IsNullOrWhiteSpace($payload)) {
             $raw = & $exe --action $action --pipe $pipe 2>&1 | Out-String
         } else {
             $raw = & $exe --action $action --pipe $pipe --payload $payload 2>&1 | Out-String
         }
-        $txtOutput.Text = $raw.Trim()
+        if ($renderRaw) {
+            $txtOutput.Text = $raw.Trim()
+        }
 
         try {
             $obj = $raw | ConvertFrom-Json
@@ -690,39 +801,55 @@ function Invoke-Action([string]$action, [string]$payload = '') {
                 if ($obj.data -is [System.Array] -and $obj.data.Count -gt 0 -and $obj.data[0].path) {
                     Render-Backups $obj.data
                 }
+                if ($obj.data.entries) {
+                    Render-LogEntries $obj.data.entries
+                    if ($null -ne $obj.data.last_id) {
+                        $script:lastLogID = [int64]$obj.data.last_id
+                    }
+                }
             } elseif ($obj.error) {
                 $lblStatusValue.Text = [string]$obj.error
                 $lblTrayValue.Text = '-'
             }
         } catch {
-            Set-Reachability($false)
-            $lblStatusValue.Text = 'Invalid JSON output'
+            if ($renderRaw) {
+                Set-Reachability($false)
+                $lblStatusValue.Text = 'Invalid JSON output'
+            }
         }
     } catch {
         Set-Reachability($false)
         $lblStatusValue.Text = $_.Exception.Message
-        $txtOutput.Text = $_.Exception.Message
+        if ($renderRaw) {
+            $txtOutput.Text = $_.Exception.Message
+        }
     }
 }
 
 $btnPing.Add_Click({ Invoke-Action 'ping' })
-$btnStatus.Add_Click({ Invoke-Action 'status' })
+$btnStatus.Add_Click({
+    Invoke-Action 'status'
+    Pull-Logs
+})
 $btnGetConfig.Add_Click({ Invoke-Action 'get-config' })
 $btnGetBackups.Add_Click({ Invoke-Action 'get-backups' })
 $btnSyncNow.Add_Click({
     Invoke-Action 'sync-now'
     Start-Sleep -Milliseconds 220
     Invoke-Action 'status'
+    Pull-Logs
 })
 $btnPauseSync.Add_Click({
     Invoke-Action 'pause-sync'
     Start-Sleep -Milliseconds 120
     Invoke-Action 'status'
+    Pull-Logs
 })
 $btnResumeSync.Add_Click({
     Invoke-Action 'resume-sync'
     Start-Sleep -Milliseconds 120
     Invoke-Action 'status'
+    Pull-Logs
 })
 $btnSaveAutoSync.Add_Click({
     $payloadObj = @{
@@ -740,6 +867,7 @@ $btnSyncSelected.Add_Click({
     Invoke-Action 'sync-backup' $zipPath
     Start-Sleep -Milliseconds 220
     Invoke-Action 'status'
+    Pull-Logs
 })
 $btnClose.Add_Click({ $form.Close() })
 
@@ -751,13 +879,17 @@ $lstBackups.Add_SelectedIndexChanged({
 
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 2500
-$timer.Add_Tick({ Invoke-Action 'status' })
+$timer.Add_Tick({
+    Invoke-Action 'status' '' $false
+    Pull-Logs
+})
 $timer.Start()
 
 $form.Add_Shown({
     Invoke-Action 'status'
     Invoke-Action 'get-config'
     Invoke-Action 'get-backups'
+    Pull-Logs
 })
 [void]$form.ShowDialog()
 `, escapedExe, escapedPipe, strings.ReplaceAll(uiHarnessWindowTitle, "'", "''"))

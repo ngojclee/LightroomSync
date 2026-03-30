@@ -6,6 +6,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -18,6 +19,7 @@ import (
 	"github.com/ngojclee/lightroom-sync/internal/config"
 	"github.com/ngojclee/lightroom-sync/internal/coordinator"
 	"github.com/ngojclee/lightroom-sync/internal/ipc"
+	"github.com/ngojclee/lightroom-sync/internal/logstream"
 	"github.com/ngojclee/lightroom-sync/internal/monitor"
 	winplatform "github.com/ngojclee/lightroom-sync/internal/platform/windows"
 	syncpkg "github.com/ngojclee/lightroom-sync/internal/sync"
@@ -29,6 +31,9 @@ var Version = "dev"
 func main() {
 	minimized := flag.Bool("minimized", false, "Start minimized to tray")
 	flag.Parse()
+
+	logBuffer := logstream.NewBuffer(800)
+	log.SetOutput(io.MultiWriter(os.Stderr, logstream.NewWriter(logBuffer)))
 
 	// --- Single instance guard ---
 	mutex := winplatform.NewSingleInstance("LightroomSyncAgent_Mutex")
@@ -517,6 +522,41 @@ func main() {
 				Success: true,
 				Data:    result,
 				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdSubscribeLogs:
+			payload, err := decodePayload[ipc.SubscribeLogsPayload](req.Payload)
+			if err != nil {
+				return ipc.Response{
+					Success: false,
+					Error:   fmt.Sprintf("invalid subscribe_logs payload: %v", err),
+					Code:    ipc.CodeBadRequest,
+				}
+			}
+			if payload.Limit <= 0 {
+				payload.Limit = 200
+			}
+			if payload.Limit > 500 {
+				payload.Limit = 500
+			}
+
+			entries, cursor := logBuffer.Since(payload.AfterID, payload.Limit)
+			stream := make([]ipc.StreamLogEntry, 0, len(entries))
+			for _, entry := range entries {
+				stream = append(stream, ipc.StreamLogEntry{
+					ID:        entry.ID,
+					Timestamp: entry.Timestamp,
+					Level:     entry.Level,
+					Message:   entry.Message,
+				})
+			}
+
+			return ipc.Response{
+				Success: true,
+				Data: ipc.SubscribeLogsResult{
+					Entries: stream,
+					LastID:  cursor,
+				},
+				Code: ipc.CodeOK,
 			}
 		case ipc.CmdSyncNow:
 			current := cfgMgr.Get()
