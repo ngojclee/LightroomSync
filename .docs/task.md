@@ -205,7 +205,7 @@
 ### 8.1 Automated Tests
 
 - [x] Unit tests: config, lock parser, manifest logic, version compare
-- [ ] Integration tests: catalog sync + preset sync on temp dirs
+- [x] Integration tests: catalog sync + preset sync on temp dirs
 - [x] Compatibility tests: Python fixtures vs Go parser/writer
 
 ### 8.2 Chaos & Recovery Tests
