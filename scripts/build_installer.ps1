@@ -32,7 +32,10 @@ function Resolve-IsccPath {
         return $fromCommand.Source
     }
 
-    $candidates = @()
+    $candidates = @(
+        "C:\Program Files\Inno Setup 6\ISCC.exe",
+        "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+    )
     if ($env:ProgramFiles -and (Test-Path -LiteralPath $env:ProgramFiles)) {
         $candidates += (Join-Path $env:ProgramFiles "Inno Setup 6\ISCC.exe")
     }

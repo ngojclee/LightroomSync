@@ -62,7 +62,7 @@ Name: "{autoprograms}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; Workin
 Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Tasks: startupagent; Flags: uninsdeletevalue
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Tasks: startupagent; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\LightroomSyncAgent.exe"; Parameters: "--minimized"; Description: "Start Lightroom Sync Agent"; Flags: nowait postinstall skipifsilent runasoriginaluser
