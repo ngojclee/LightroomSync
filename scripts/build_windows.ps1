@@ -113,40 +113,55 @@ try {
         )
 
         $wailsCmd = Get-Command wails -ErrorAction SilentlyContinue
-        if (-not $wailsCmd) {
-            throw "wails CLI not found in PATH."
-        }
+        $previousCgo = $env:CGO_ENABLED
+        $env:CGO_ENABLED = "1"
+        $wailsBuildError = $null
+        try {
+            if ($wailsCmd) {
+                $wailsArgs = @(
+                    "build",
+                    "-clean",
+                    "-platform", "windows/amd64",
+                    "-tags", "wails",
+                    "-ldflags", $Ldflags
+                )
+                & $wailsCmd.Source @wailsArgs
+                if ($LASTEXITCODE -eq 0) {
+                    $candidates = @(
+                        (Join-Path $Root "build\bin\LightroomSyncUI.exe"),
+                        (Join-Path $Root "build\bin\LightroomSyncUI")
+                    )
+                    $builtPath = $null
+                    foreach ($candidate in $candidates) {
+                        if (Test-Path -LiteralPath $candidate) {
+                            $builtPath = (Resolve-Path -LiteralPath $candidate).Path
+                            break
+                        }
+                    }
+                    if (-not $builtPath) {
+                        throw "wails build succeeded but output binary not found in expected locations."
+                    }
 
-        $wailsArgs = @(
-            "build",
-            "-clean",
-            "-platform", "windows/amd64",
-            "-ldflags", $Ldflags
-        )
-        & $wailsCmd.Source @wailsArgs
-        if ($LASTEXITCODE -ne 0) {
-            throw "wails build failed"
-        }
-
-        $candidates = @(
-            (Join-Path $Root "build\bin\LightroomSyncUI.exe"),
-            (Join-Path $Root "build\bin\LightroomSyncUI")
-        )
-        $builtPath = $null
-        foreach ($candidate in $candidates) {
-            if (Test-Path -LiteralPath $candidate) {
-                $builtPath = (Resolve-Path -LiteralPath $candidate).Path
-                break
+                    $builtFullPath = [System.IO.Path]::GetFullPath($builtPath)
+                    $targetFullPath = [System.IO.Path]::GetFullPath($OutPath)
+                    if ($targetFullPath -ne $builtFullPath) {
+                        Copy-Item -LiteralPath $builtPath -Destination $OutPath -Force
+                    }
+                    return
+                }
+                $wailsBuildError = "wails build failed"
+            } else {
+                $wailsBuildError = "wails CLI not found in PATH."
             }
-        }
-        if (-not $builtPath) {
-            throw "wails build succeeded but output binary not found in expected locations."
-        }
 
-        $builtFullPath = [System.IO.Path]::GetFullPath($builtPath)
-        $targetFullPath = [System.IO.Path]::GetFullPath($OutPath)
-        if ($targetFullPath -ne $builtFullPath) {
-            Copy-Item -LiteralPath $builtPath -Destination $OutPath -Force
+            Write-Warning "[build] Wails CLI path failed: $wailsBuildError. Attempting direct go build -tags wails..."
+            & go build -trimpath -tags wails -ldflags $Ldflags -o $OutPath ./cmd/ui
+            if ($LASTEXITCODE -ne 0) {
+                throw "wails build failed; direct go build -tags wails also failed"
+            }
+            Write-Warning "[build] Built Wails runtime via direct go build fallback (without Wails CLI packaging)."
+        } finally {
+            $env:CGO_ENABLED = $previousCgo
         }
     }
 

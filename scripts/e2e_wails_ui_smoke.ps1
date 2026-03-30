@@ -284,6 +284,7 @@ try {
     $combinedLog = ($stdoutLog + "`n" + $stderrLog)
     $knownPatterns = @(
         "Unable to find Wails in go.mod",
+        "wails runtime is not included in this build",
         "run wails dev",
         "wails CLI"
     )
@@ -358,4 +359,3 @@ finally {
     }
     Stop-AgentIfOwned
 }
-

@@ -17,7 +17,7 @@
 - `frontend/` now has the Wave 3/4 baseline shell, but still needs real Wails runtime verification in this environment plus build/installer cutover steps.
 - Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
 - Wave 3 frontend shell contract and tab-command mapping are now explicitly documented for implementation alignment.
-- Wave 1 scaffold implementation is in place (runtime switch + frontend scaffold), with remaining unblock on Wails CLI preflight/module availability.
+- Wave 1 scaffold implementation now includes embedded runtime wiring (`go.mod` Wails dependency + build-tagged runtime files); remaining unblock is host-level dependency/binding fetch failure (DNS/proxy) during strict Wails build verification.
 - Wave 2 bridge refactor is implemented: UI action handlers are centralized in `internal/uiapi`, covered by package tests, and parity evidence is captured via `scripts/e2e_ui_command_parity.ps1`.
 - Wave 5 pipeline baseline is implemented: build/installer scripts now support explicit UI runtime selection (`harness|wails`) and fallback-aware runtime provenance via `build-metadata.json`.
 - Wave 6 smoke baseline is implemented: a dedicated Wails smoke probe now validates startup + IPC + close and records strict/known-blocker evidence under `build/e2e`.
@@ -34,7 +34,7 @@ Deliverables:
 
 Gate:
 - `LightroomSyncUI.exe --action ping` vẫn chạy bình thường.
-- Wails dev runtime mở được cửa sổ shell trống.
+- Embedded Wails runtime mở được cửa sổ app thật từ `LightroomSyncUI.exe --runtime wails`.
 
 ### Wave 2 (M2) — Extract Shared UI API
 

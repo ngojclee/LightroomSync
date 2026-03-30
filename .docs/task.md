@@ -191,16 +191,16 @@
 - [x] Add Wave 2 `internal/uiapi` refactor spec + timeline/dependency map
 - [x] Add Wave 3 frontend shell spec + tab-to-command contract map
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
-Status note: runtime switch + Wails/frontend scaffold implemented; remaining blocker is Wails CLI preflight (`Unable to find Wails in go.mod`) in the current offline environment.
+Status note: runtime switch + Wails/frontend scaffold are implemented, and `go.mod` now declares `github.com/wailsapp/wails/v2` with build-tagged embedded runtime wiring. Remaining blocker is strict Wails dependency/binding fetch in this host (`proxy.golang.org` DNS failures), so Wails runtime verification is still pending.
 - [x] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
 - [x] Add Wave 2 parity automation (`scripts/e2e_ui_command_parity.ps1`) + evidence output under `build/e2e`
 - [x] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
 - [x] Wire polling/event flows and robust in-flight/error handling
 Status note: Wave 3 + Wave 4 baseline is now implemented in `frontend/src` with a full tab shell, Wails/global bridge fallback, visibility-aware polling (`status` + `subscribe-logs`), and in-flight guards. Remaining work is runtime verification in real Wails window once npm/wails network dependency is available.
 - [x] Integrate Wails artifact into build/installer pipeline
-Status note: `scripts/build_windows.ps1` and `scripts/build_installer.ps1` are now runtime-aware (`-UIRuntime harness|wails`) with optional fallback (`-AllowHarnessFallback`) and metadata/runtime validation to keep packaged UI artifacts explicit and traceable.
+Status note: `scripts/build_windows.ps1` and `scripts/build_installer.ps1` are runtime-aware (`-UIRuntime harness|wails`) with optional fallback (`-AllowHarnessFallback`) and metadata/runtime validation to keep packaged UI artifacts explicit and traceable. The Wails build path now also attempts direct `go build -tags wails` before harness fallback, improving resilience on hosts where `wails build` preflight fails.
 - [ ] Execute Wails validation matrix and switch default UI runtime
-Status note: Wails smoke + tray automation are now available via `scripts/e2e_wails_ui_smoke.ps1` and runtime-aware `scripts/e2e_tray_ui_smoke.ps1` (`-UIRuntime wails`). Strict Wails validation still reports the expected preflight blocker in this environment, while blocker-accepted mode records explicit evidence without hiding the issue.
+Status note: Wails smoke + tray automation are available via `scripts/e2e_wails_ui_smoke.ps1` and runtime-aware `scripts/e2e_tray_ui_smoke.ps1` (`-UIRuntime wails`). Strict runs still fail in this host due network dependency resolution, while blocker-accepted mode records explicit evidence (including fallback-stub output) without hiding the issue.
 
 ## Phase 7: Build, Release, and Installer
 

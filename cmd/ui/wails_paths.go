@@ -2,36 +2,9 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 )
-
-func launchWailsRuntime(pipeName string) error {
-	projectRoot, err := resolveWailsProjectRoot()
-	if err != nil {
-		return err
-	}
-
-	cmd := exec.Command("wails", "dev")
-	cmd.Dir = projectRoot
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	cmd.Env = append(
-		os.Environ(),
-		"LIGHTROOMSYNC_PIPE="+pipeName,
-		"LIGHTROOMSYNC_UI_VERSION="+Version,
-	)
-
-	log.Printf("[INFO] Launching Wails runtime (dev mode) from %s", projectRoot)
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("run wails dev: %w", err)
-	}
-
-	return nil
-}
 
 func resolveWailsProjectRoot() (string, error) {
 	candidates := make([]string, 0, 2)

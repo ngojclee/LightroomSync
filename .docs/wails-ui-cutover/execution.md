@@ -29,9 +29,9 @@ pwsh -File scripts/build_windows.ps1 -SkipTests
 
 Expected:
 - CLI action returns JSON.
-- Wails shell can launch in dev mode.
+- Embedded Wails runtime can launch from `LightroomSyncUI.exe --runtime wails`.
 Current blocker:
-- Wails CLI currently stops at preflight (`Unable to find Wails in go.mod`) in this environment; keep harness runtime as default until Wave 1 unblock.
+- Wave 1 no longer blocks on `go.mod` preflight (`github.com/wailsapp/wails/v2` is now declared), but this host still fails strict Wails build/runtime verification due module/binding fetch failures (`proxy.golang.org` DNS lookup errors). Keep harness runtime as default until network dependencies are reachable.
 
 ### Wave 2
 
@@ -69,6 +69,7 @@ Expected:
 - UI binary + metadata generated.
 - Metadata captures `ui_runtime_requested/effective` for traceability.
 - Installer includes intended UI artifact.
+- If `wails build` fails, script now attempts direct `go build -tags wails` before using harness fallback.
 
 ### Wave 6
 
@@ -87,7 +88,7 @@ Expected:
 - Regression scripts pass.
 - Manual matrix evidence complete for cutover signoff.
 Environment note:
-- In hosts where Wails preflight is still blocked, use `-AcceptKnownPreflightBlocker` to capture explicit blocker evidence while keeping the run auditable.
+- In hosts where strict Wails runtime is still blocked (preflight or fallback-stub conditions), use `-AcceptKnownPreflightBlocker` to capture explicit blocker evidence while keeping the run auditable.
 
 ## Evidence Folder Convention
 

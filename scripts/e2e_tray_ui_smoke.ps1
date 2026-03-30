@@ -278,6 +278,7 @@ try {
     $uiFocusKnownBlocker = $false
     $knownBlockerPatterns = @(
         "Unable to find Wails in go.mod",
+        "wails runtime is not included in this build",
         "run wails dev",
         "wails CLI"
     )
