@@ -5,7 +5,7 @@ VERSION ?= 2.0.0.0
 all: build
 
 build:
-	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)"
+	pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)"
 
 agent:
 	go build -ldflags "-X main.Version=$(VERSION)" -o build/bin/LightroomSyncAgent.exe ./cmd/agent
@@ -17,4 +17,4 @@ test:
 	go test ./... -count=1
 
 clean:
-	powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path 'build/bin') { Remove-Item -LiteralPath 'build/bin' -Recurse -Force }"
+	pwsh -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path 'build/bin') { Remove-Item -LiteralPath 'build/bin' -Recurse -Force }"
