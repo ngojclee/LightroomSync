@@ -85,14 +85,10 @@ func (h *HeartbeatManager) Run(ctx context.Context) {
 }
 
 func (h *HeartbeatManager) writeAndReport(ctx context.Context, status LockStatus) {
-	err := h.writeWithRetry(ctx, status)
+	info, err := h.writeWithRetry(ctx, status)
 	if err == nil {
 		if h.hooks.OnHeartbeat != nil {
-			h.hooks.OnHeartbeat(LockInfo{
-				Status:    status,
-				Machine:   h.machine,
-				Timestamp: time.Now().UTC(),
-			})
+			h.hooks.OnHeartbeat(info)
 		}
 		return
 	}
@@ -108,9 +104,10 @@ func (h *HeartbeatManager) writeAndReport(ctx context.Context, status LockStatus
 	log.Printf("[WARN] heartbeat write failed: %v", err)
 }
 
-func (h *HeartbeatManager) writeWithRetry(ctx context.Context, status LockStatus) error {
+func (h *HeartbeatManager) writeWithRetry(ctx context.Context, status LockStatus) (LockInfo, error) {
 	var lastErr error
 	delay := h.cfg.RetryBase
+	var lastInfo LockInfo
 
 	for attempt := 1; attempt <= h.cfg.MaxRetries; attempt++ {
 		info := LockInfo{
@@ -118,14 +115,15 @@ func (h *HeartbeatManager) writeWithRetry(ctx context.Context, status LockStatus
 			Machine:   h.machine,
 			Timestamp: time.Now().UTC(),
 		}
+		lastInfo = info
 		if err := h.writer.WriteLock(ctx, info); err == nil {
-			return nil
+			return info, nil
 		} else {
 			lastErr = err
 		}
 
 		if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) {
-			return lastErr
+			return lastInfo, lastErr
 		}
 		if attempt == h.cfg.MaxRetries {
 			break
@@ -135,7 +133,7 @@ func (h *HeartbeatManager) writeWithRetry(ctx context.Context, status LockStatus
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return ctx.Err()
+			return lastInfo, ctx.Err()
 		case <-timer.C:
 		}
 
@@ -145,5 +143,5 @@ func (h *HeartbeatManager) writeWithRetry(ctx context.Context, status LockStatus
 		}
 	}
 
-	return fmt.Errorf("heartbeat write failed after %d attempts: %w", h.cfg.MaxRetries, lastErr)
+	return lastInfo, fmt.Errorf("heartbeat write failed after %d attempts: %w", h.cfg.MaxRetries, lastErr)
 }

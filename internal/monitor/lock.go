@@ -2,10 +2,13 @@ package monitor
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -25,6 +28,8 @@ type LockInfo struct {
 	Status    LockStatus
 	Machine   string
 	Timestamp time.Time
+	SessionID string
+	Epoch     uint64
 }
 
 // String serializes to the Python-compatible wire format.
@@ -60,11 +65,17 @@ func ParseLock(data string) (LockInfo, error) {
 // LockManager handles reading/writing the network lock file.
 type LockManager struct {
 	catalogDir string // e.g. \\server\share\Catalog
+	mu         sync.Mutex
+	sessionID  string
+	epoch      uint64
 }
 
 // NewLockManager creates a lock manager for the given catalog directory on the network.
 func NewLockManager(catalogDir string) *LockManager {
-	return &LockManager{catalogDir: catalogDir}
+	return &LockManager{
+		catalogDir: catalogDir,
+		sessionID:  newLockSessionID(),
+	}
 }
 
 // LockPath returns the full path to the lock file.
@@ -90,6 +101,7 @@ func (m *LockManager) ReadLock(ctx context.Context) (*LockInfo, error) {
 
 // WriteLock writes the lock file atomically (write tmp + rename).
 func (m *LockManager) WriteLock(ctx context.Context, info LockInfo) error {
+	info = m.prepareInternalMetadata(info)
 	lockPath := m.LockPath()
 	dir := filepath.Dir(lockPath)
 
@@ -102,6 +114,20 @@ func (m *LockManager) WriteLock(ctx context.Context, info LockInfo) error {
 		return fmt.Errorf("rename lock: %w", err)
 	}
 	return nil
+}
+
+// SessionID returns the manager session identifier used for internal lock sequencing.
+func (m *LockManager) SessionID() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.sessionID
+}
+
+// Epoch returns the latest internal lock epoch observed by this manager.
+func (m *LockManager) Epoch() uint64 {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.epoch
 }
 
 // IsStale returns true if the lock timestamp is older than timeout.
@@ -126,4 +152,34 @@ func writeFileWithContext(ctx context.Context, path string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func (m *LockManager) prepareInternalMetadata(info LockInfo) LockInfo {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if info.SessionID == "" {
+		info.SessionID = m.sessionID
+	} else {
+		m.sessionID = info.SessionID
+	}
+
+	if info.Epoch == 0 {
+		m.epoch++
+		info.Epoch = m.epoch
+	} else {
+		if info.Epoch > m.epoch {
+			m.epoch = info.Epoch
+		}
+	}
+
+	return info
+}
+
+func newLockSessionID() string {
+	buf := make([]byte, 8)
+	if _, err := rand.Read(buf); err == nil {
+		return hex.EncodeToString(buf)
+	}
+	return fmt.Sprintf("%d", time.Now().UTC().UnixNano())
 }

@@ -82,7 +82,7 @@
 
 - [x] Implement parser/writer for `STATUS|MACHINE|TIMESTAMP`
 - [x] Implement atomic write: write temp + rename
-- [ ] Add optional `session_id` and `epoch` internally (do not break legacy file format)
+- [x] Add optional `session_id` and `epoch` internally (do not break legacy file format)
 - [x] Heartbeat loop with retry/backoff policy
 
 ### 3.3 Backup Monitor

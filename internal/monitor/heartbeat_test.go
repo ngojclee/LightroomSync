@@ -57,7 +57,7 @@ func TestHeartbeat_WriteWithRetry_SucceedsWithinBudget(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	if err := hb.writeWithRetry(ctx, LockOnline); err != nil {
+	if _, err := hb.writeWithRetry(ctx, LockOnline); err != nil {
 		t.Fatalf("writeWithRetry should succeed: %v", err)
 	}
 	if got := writer.attemptsCount(); got != 3 {
@@ -78,7 +78,7 @@ func TestHeartbeat_WriteWithRetry_FailsWhenBudgetExceeded(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
 
-	if err := hb.writeWithRetry(ctx, LockOnline); err == nil {
+	if _, err := hb.writeWithRetry(ctx, LockOnline); err == nil {
 		t.Fatal("writeWithRetry should fail when retry budget exceeded")
 	}
 	if got := writer.attemptsCount(); got != 3 {
