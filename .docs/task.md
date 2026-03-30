@@ -172,7 +172,7 @@
 ### 6.3 Log Tab
 
 - [x] Subscribe to log stream from Agent
-- [ ] Implement level filters + max buffer limit
+- [x] Implement level filters + max buffer limit
 
 ### 6.4 Update Tab
 

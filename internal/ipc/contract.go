@@ -121,8 +121,9 @@ type StreamLogEntry struct {
 
 // SubscribeLogsPayload requests buffered logs after a cursor ID.
 type SubscribeLogsPayload struct {
-	AfterID int64 `json:"after_id,omitempty"`
-	Limit   int   `json:"limit,omitempty"`
+	AfterID int64  `json:"after_id,omitempty"`
+	Limit   int    `json:"limit,omitempty"`
+	Level   string `json:"level,omitempty"` // ALL, INFO, WARN, ERROR, DEBUG
 }
 
 // SubscribeLogsResult is the subscribe_logs IPC response payload.

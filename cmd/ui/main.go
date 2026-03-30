@@ -687,6 +687,31 @@ $lblLogsTitle.AutoSize = $true
 $lblLogsTitle.Location = New-Object System.Drawing.Point(474, 360)
 $form.Controls.Add($lblLogsTitle)
 
+$lblLogLevel = New-Object System.Windows.Forms.Label
+$lblLogLevel.Text = 'Level:'
+$lblLogLevel.AutoSize = $true
+$lblLogLevel.Location = New-Object System.Drawing.Point(760, 360)
+$form.Controls.Add($lblLogLevel)
+
+$cmbLogLevel = New-Object System.Windows.Forms.ComboBox
+$cmbLogLevel.DropDownStyle = 'DropDownList'
+[void]$cmbLogLevel.Items.Add('ALL')
+[void]$cmbLogLevel.Items.Add('INFO')
+[void]$cmbLogLevel.Items.Add('WARN')
+[void]$cmbLogLevel.Items.Add('ERROR')
+[void]$cmbLogLevel.Items.Add('DEBUG')
+$cmbLogLevel.SelectedIndex = 0
+$cmbLogLevel.Location = New-Object System.Drawing.Point(805, 356)
+$cmbLogLevel.Width = 90
+$form.Controls.Add($cmbLogLevel)
+
+$btnClearLogs = New-Object System.Windows.Forms.Button
+$btnClearLogs.Text = 'Clear'
+$btnClearLogs.Width = 60
+$btnClearLogs.Height = 26
+$btnClearLogs.Location = New-Object System.Drawing.Point(902, 354)
+$form.Controls.Add($btnClearLogs)
+
 $txtLogs = New-Object System.Windows.Forms.TextBox
 $txtLogs.Multiline = $true
 $txtLogs.ReadOnly = $true
@@ -765,6 +790,10 @@ function Pull-Logs() {
     $payloadObj = @{
         after_id = [int64]$script:lastLogID
         limit = 120
+    }
+    $selectedLevel = [string]$cmbLogLevel.SelectedItem
+    if (-not [string]::IsNullOrWhiteSpace($selectedLevel) -and $selectedLevel -ne 'ALL') {
+        $payloadObj.level = $selectedLevel
     }
     $payloadJson = $payloadObj | ConvertTo-Json -Compress
     Invoke-Action 'subscribe-logs' $payloadJson $false
@@ -870,6 +899,16 @@ $btnSyncSelected.Add_Click({
     Pull-Logs
 })
 $btnClose.Add_Click({ $form.Close() })
+$btnClearLogs.Add_Click({
+    $script:lastLogID = 0
+    $txtLogs.Clear()
+    Pull-Logs
+})
+$cmbLogLevel.Add_SelectedIndexChanged({
+    $script:lastLogID = 0
+    $txtLogs.Clear()
+    Pull-Logs
+})
 
 $lstBackups.Add_SelectedIndexChanged({
     if ($lstBackups.SelectedItem) {

@@ -538,16 +538,27 @@ func main() {
 			if payload.Limit > 500 {
 				payload.Limit = 500
 			}
+			levelFilter := normalizeLogLevelFilter(payload.Level)
+			scanLimit := payload.Limit
+			if levelFilter != "" {
+				scanLimit = 500
+			}
 
-			entries, cursor := logBuffer.Since(payload.AfterID, payload.Limit)
-			stream := make([]ipc.StreamLogEntry, 0, len(entries))
+			entries, cursor := logBuffer.Since(payload.AfterID, scanLimit)
+			stream := make([]ipc.StreamLogEntry, 0, payload.Limit)
 			for _, entry := range entries {
+				if levelFilter != "" && !strings.EqualFold(entry.Level, levelFilter) {
+					continue
+				}
 				stream = append(stream, ipc.StreamLogEntry{
 					ID:        entry.ID,
 					Timestamp: entry.Timestamp,
 					Level:     entry.Level,
 					Message:   entry.Message,
 				})
+				if len(stream) >= payload.Limit {
+					break
+				}
 			}
 
 			return ipc.Response{
@@ -932,4 +943,21 @@ func resolveUIExecutable(agentExePath string) string {
 		}
 	}
 	return candidates[0]
+}
+
+func normalizeLogLevelFilter(raw string) string {
+	switch strings.ToUpper(strings.TrimSpace(raw)) {
+	case "", "ALL":
+		return ""
+	case "INFO":
+		return "INFO"
+	case "WARN", "WARNING":
+		return "WARN"
+	case "ERROR":
+		return "ERROR"
+	case "DEBUG":
+		return "DEBUG"
+	default:
+		return ""
+	}
 }
