@@ -192,7 +192,8 @@
 - [x] Add Wave 3 frontend shell spec + tab-to-command contract map
 - [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
 Status note: runtime switch + Wails/frontend scaffold implemented; remaining blocker is Wails CLI preflight (`Unable to find Wails in go.mod`) in the current offline environment.
-- [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
+- [x] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
+- [x] Add Wave 2 parity automation (`scripts/e2e_ui_command_parity.ps1`) + evidence output under `build/e2e`
 - [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
 - [ ] Wire polling/event flows and robust in-flight/error handling
 - [ ] Integrate Wails artifact into build/installer pipeline
@@ -239,6 +240,7 @@ Status note: runtime switch + Wails/frontend scaffold implemented; remaining blo
 - [x] Add installer regression automation helper (`scripts/e2e_installer_regression.ps1`) with JSON/log evidence output
 - [x] Add two-machine snapshot compare helper (`scripts/e2e_two_machine_compare.ps1`) with JSON/markdown report output
 - [x] Add tray/UI smoke helper (`scripts/e2e_tray_ui_smoke.ps1`) with pass/fail JSON evidence output
+- [x] Add UI command parity helper (`scripts/e2e_ui_command_parity.ps1`) with envelope compatibility evidence output
 - [ ] Two-machine end-to-end sync validation
 - [ ] Tray actions and notifications validation
 - [ ] UI responsiveness validation under network stress

@@ -46,6 +46,18 @@ Report file:
 
 - `build/e2e/latency-<HOST>-<TIMESTAMP>.json`
 
+## 3.5 UI Command Parity Smoke
+
+Run parity check to ensure CLI/UI action envelope compatibility remains stable after UI refactors:
+
+```powershell
+pwsh -File scripts/e2e_ui_command_parity.ps1
+```
+
+Output:
+
+- `build/e2e/ui-command-parity-<TIMESTAMP>.json`
+
 ## 4. Two-Machine End-to-End Sync Validation
 
 Checklist:

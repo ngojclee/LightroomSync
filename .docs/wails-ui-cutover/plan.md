@@ -18,6 +18,7 @@
 - Wave-level specs now exist for Wave 1 and Wave 2, with dependency/timeline map for execution pacing.
 - Wave 3 frontend shell contract and tab-command mapping are now explicitly documented for implementation alignment.
 - Wave 1 scaffold implementation is in place (runtime switch + frontend scaffold), with remaining unblock on Wails CLI preflight/module availability.
+- Wave 2 bridge refactor is implemented: UI action handlers are centralized in `internal/uiapi`, covered by package tests, and parity evidence is captured via `scripts/e2e_ui_command_parity.ps1`.
 
 ## Execution Order (6 Waves)
 

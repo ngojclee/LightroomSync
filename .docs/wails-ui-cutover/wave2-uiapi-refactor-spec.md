@@ -93,3 +93,14 @@ Expected:
 - No full frontend tabs yet.
 - No installer cutover.
 - No default runtime switch.
+
+## Execution Result (Current Session)
+
+- Implemented:
+  - `internal/uiapi` package (`types`, `service`, `errors`)
+  - `cmd/ui/main.go` action dispatch migrated to `uiapi.Service`
+  - `cmd/ui/wails_app.go` now calls shared `uiapi` service
+  - parity automation helper `scripts/e2e_ui_command_parity.ps1`
+- Verified:
+  - `go test ./internal/uiapi` passes
+  - command parity checks pass and emit report under `build/e2e/ui-command-parity-*.json`

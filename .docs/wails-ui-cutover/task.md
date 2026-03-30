@@ -4,7 +4,7 @@
 >  
 > Target: Real Wails GUI as default UI runtime
 >  
-> Current Focus: Wave 1 (M1) Runtime Bootstrap
+> Current Focus: Wave 3 (M3) Frontend Shell (Wave 2 complete; Wave 1 verification partially blocked by environment)
 >  
 > Wave 1 spec: [wave1-bootstrap-spec.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/wave1-bootstrap-spec.md)
 >  
@@ -32,11 +32,12 @@ Status note: `--action ping` pass confirmed from `build/bin/LightroomSyncUI.exe`
 
 ## M2. Backend Bridge Refactor
 
-- [ ] Extract action handlers into `internal/uiapi` reusable package
-- [ ] Add typed adapter layer for frontend bindings
-- [ ] Add unit tests for command mapping + error code parity
-- [ ] Freeze pre-refactor baseline outputs for command parity checks
-- [ ] Verification: JSON output parity for `ping/status/get-config/save-config`
+- [x] Extract action handlers into `internal/uiapi` reusable package
+- [x] Add typed adapter layer for frontend bindings
+- [x] Add unit tests for command mapping + error code parity
+- [x] Freeze parity evidence outputs for command envelope checks (`build/e2e/ui-command-parity-*.json`)
+- [x] Verification: JSON output parity for `ping/status/get-config/save-config`
+Status note: refactor is merged in code; CLI command execution now routes through `internal/uiapi.Service` and parity checks pass with `scripts/e2e_ui_command_parity.ps1`.
 
 ## M3. Frontend Shell
 

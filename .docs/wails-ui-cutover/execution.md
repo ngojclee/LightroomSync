@@ -39,6 +39,7 @@ Current blocker:
 .\build\bin\LightroomSyncUI.exe --action status
 .\build\bin\LightroomSyncUI.exe --action get-config
 .\build\bin\LightroomSyncUI.exe --action save-config --payload "{}"
+pwsh -File scripts/e2e_ui_command_parity.ps1
 ```
 
 Expected:
