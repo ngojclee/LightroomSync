@@ -18,22 +18,26 @@
   #define UIRuntimeRequested UIRuntime
 #endif
 
+#ifndef UIBinaryName
+  #define UIBinaryName "LightroomSync.exe"
+#endif
+
 [Setup]
 AppId={{8EDE9ED8-3514-492D-AF64-4E5FC856D636}
 AppName=Lightroom Sync
 AppVersion={#AppVersion}
 AppVerName=Lightroom Sync {#AppVersion}
-DefaultDirName={localappdata}\Programs\Lightroom Sync
+DefaultDirName={autopf64}\Lightroom Sync
 DefaultGroupName=Lightroom Sync
 DisableProgramGroupPage=yes
-UninstallDisplayIcon={app}\LightroomSyncUI.exe
+UninstallDisplayIcon={app}\{#UIBinaryName}
 OutputDir={#OutputDir}
 OutputBaseFilename=LightroomSyncSetup-v{#AppVersion}-windows-amd64
 Compression=lzma2
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 WizardStyle=modern
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
@@ -50,19 +54,19 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "{#SourceBinDir}\LightroomSyncAgent.exe"; DestDir: "{app}"; Flags: ignoreversion
-Source: "{#SourceBinDir}\LightroomSyncUI.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "{#SourceBinDir}\{#UIBinaryName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceBinDir}\build-metadata.json"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 
 [Icons]
-Name: "{autoprograms}\Lightroom Sync"; Filename: "{app}\LightroomSyncUI.exe"; WorkingDir: "{app}"
-Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\LightroomSyncUI.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+Name: "{autoprograms}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; WorkingDir: "{app}"
+Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Tasks: startupagent; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\LightroomSyncAgent.exe"; Parameters: "--minimized"; Description: "Start Lightroom Sync Agent"; Flags: nowait postinstall skipifsilent runasoriginaluser
-Filename: "{app}\LightroomSyncUI.exe"; Description: "Open Lightroom Sync"; Flags: nowait postinstall skipifsilent unchecked runasoriginaluser
+Filename: "{app}\{#UIBinaryName}"; Description: "Open Lightroom Sync"; Flags: nowait postinstall skipifsilent unchecked runasoriginaluser
 
 [Code]
 function TryStopProcess(const ImageName: string; const ForceKill: Boolean): Boolean;
@@ -85,9 +89,11 @@ end;
 procedure StopRunningProcesses();
 begin
   Log('Stopping Lightroom Sync processes before install/uninstall...');
+  TryStopProcess('LightroomSync.exe', False);
   TryStopProcess('LightroomSyncUI.exe', False);
   TryStopProcess('LightroomSyncAgent.exe', False);
   Sleep(1200);
+  TryStopProcess('LightroomSync.exe', True);
   TryStopProcess('LightroomSyncUI.exe', True);
   TryStopProcess('LightroomSyncAgent.exe', True);
   Sleep(400);

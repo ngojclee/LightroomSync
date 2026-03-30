@@ -98,7 +98,8 @@ func main() {
 		log.Printf("[WARN] Preset sync local root unavailable: %v", presetRootErr)
 	}
 	updateChecker := updatepkg.NewChecker(updatepkg.CheckerOptions{
-		Repository: "ngojclee/LightroomSync",
+		Repository: "ngojclee/win-toolbox",
+		AppName:    "LightroomSync",
 	})
 	var updateMu sync.Mutex
 	var cachedLatestUpdate ipc.CheckUpdateResult
@@ -378,7 +379,7 @@ func main() {
 			if err := shareProbe(revalidateCtx); err != nil {
 				log.Printf("[WARN] network revalidation after resume failed: %v", err)
 				appState.IncNetworkMonitorError()
-				appState.SetWarning("Network share chưa sẵn sàng sau resume")
+				appState.SetWarning("Network share not ready after resume")
 				eventBus.Emit(coordinator.InternalEvent{
 					Type:    coordinator.EvtNetworkLost,
 					Payload: err.Error(),
@@ -447,6 +448,7 @@ func main() {
 	}
 
 	// --- Start IPC server (UI <-> Agent) ---
+	shutdownCh := make(chan struct{}, 1)
 	ipcServer := ipc.NewServer(ipc.PipeName, ipc.DefaultRequestTimeout, func(reqCtx context.Context, req ipc.Request) ipc.Response {
 		switch req.Command {
 		case ipc.CmdPing:
@@ -839,6 +841,31 @@ func main() {
 				Error:   "unsupported command",
 				Code:    ipc.CodeUnknownCmd,
 			}
+		case ipc.CmdDiscoverPresets:
+			lrRoot, err := syncpkg.DefaultLightroomPresetRoot()
+			var dirs []string
+			if err == nil {
+				dirs, _ = syncpkg.DiscoverPresetCategories(lrRoot)
+			}
+			if len(dirs) == 0 {
+				dirs = []string{"Export Presets", "Develop Presets", "Watermarks", "Metadata Presets", "Filename Templates"}
+			}
+			return ipc.Response{
+				Success: true,
+				Data:    dirs,
+				Code:    ipc.CodeOK,
+			}
+		case ipc.CmdShutdownAgent:
+			log.Println("[INFO] Shutdown requested via IPC from UI")
+			select {
+			case shutdownCh <- struct{}{}:
+			default:
+			}
+			return ipc.Response{
+				Success: true,
+				Data:    map[string]string{"message": "shutdown initiated"},
+				Code:    ipc.CodeOK,
+			}
 		}
 	})
 	startManaged(ctx, &wg, "ipc-server", func(ctx context.Context) {
@@ -875,8 +902,12 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 
-	<-sigCh
-	log.Println("[INFO] Shutting down Agent...")
+	select {
+	case <-sigCh:
+		log.Println("[INFO] OS signal received, shutting down Agent...")
+	case <-shutdownCh:
+		log.Println("[INFO] IPC shutdown command received, shutting down Agent...")
+	}
 
 	// Stop managed loops.
 	cancel()
@@ -1081,9 +1112,9 @@ func resolveUIExecutable(agentExePath string) string {
 	}
 	dir := filepath.Dir(agentExePath)
 	candidates := []string{
+		filepath.Join(dir, "LightroomSync.exe"),
 		filepath.Join(dir, "LightroomSyncUI.exe"),
 		filepath.Join(dir, "ui.exe"),
-		filepath.Join(dir, "LightroomSyncUI"),
 	}
 	for _, candidate := range candidates {
 		if _, err := os.Stat(candidate); err == nil {

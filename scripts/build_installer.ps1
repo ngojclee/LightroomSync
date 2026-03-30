@@ -4,9 +4,8 @@ param(
     [string]$SourceBinDir = "build/bin",
     [string]$OutputDir = "build/installer",
     [string]$InstallerScript = "installer/LightroomSyncSetup.iss",
-    [ValidateSet("harness", "wails")]
-    [string]$UIRuntime = "harness",
-    [switch]$AllowHarnessFallback,
+    [ValidateSet("wails")]
+    [string]$UIRuntime = "wails",
     [switch]$SkipBuild
 )
 
@@ -64,36 +63,28 @@ if (-not $SkipBuild) {
         -Version $Version `
         -OutputDir $SourceBinDir `
         -UIRuntime $UIRuntime `
-        -AllowHarnessFallback:$AllowHarnessFallback
+        -SkipReleaseAssets
     if ($LASTEXITCODE -ne 0) {
         throw "build_windows.ps1 failed"
     }
 }
 
+$uiBinaryName = @("LightroomSync.exe", "LightroomSyncUI.exe") |
+    Where-Object { Test-Path -LiteralPath (Join-Path $resolvedSourceBinDir $_) } |
+    Select-Object -First 1
+if ([string]::IsNullOrWhiteSpace($uiBinaryName)) {
+    throw "Required UI binary missing in $resolvedSourceBinDir. Expected one of: LightroomSync.exe, LightroomSyncUI.exe"
+}
+
 $requiredBinaries = @(
     (Join-Path $resolvedSourceBinDir "LightroomSyncAgent.exe"),
-    (Join-Path $resolvedSourceBinDir "LightroomSyncUI.exe")
+    (Join-Path $resolvedSourceBinDir $uiBinaryName)
 )
 
 foreach ($binary in $requiredBinaries) {
     if (-not (Test-Path -LiteralPath $binary)) {
         throw "Required binary missing: $binary"
     }
-}
-
-$metadataPath = Join-Path $resolvedSourceBinDir "build-metadata.json"
-$uiRuntimeEffective = $UIRuntime
-if (Test-Path -LiteralPath $metadataPath) {
-    $metadata = Get-Content -Raw -LiteralPath $metadataPath | ConvertFrom-Json
-    if ($metadata.ui_runtime_effective) {
-        $uiRuntimeEffective = [string]$metadata.ui_runtime_effective
-    }
-}
-if ($uiRuntimeEffective -ne $UIRuntime) {
-    if (-not $AllowHarnessFallback) {
-        throw "UI runtime mismatch: requested=$UIRuntime effective=$uiRuntimeEffective. Re-run with -AllowHarnessFallback to allow fallback."
-    }
-    Write-Warning "UI runtime mismatch accepted by fallback policy: requested=$UIRuntime effective=$uiRuntimeEffective"
 }
 
 New-Item -ItemType Directory -Force -Path $resolvedOutputDir | Out-Null
@@ -103,7 +94,8 @@ Write-Host "[installer] ISCC=$iscc"
 Write-Host "[installer] Version=$Version"
 Write-Host "[installer] SourceBinDir=$resolvedSourceBinDir"
 Write-Host "[installer] OutputDir=$resolvedOutputDir"
-Write-Host "[installer] UIRuntime requested=$UIRuntime effective=$uiRuntimeEffective"
+Write-Host "[installer] UIRuntime=$UIRuntime"
+Write-Host "[installer] UIBinaryName=$uiBinaryName"
 
 Push-Location $ProjectRoot
 try {
@@ -111,8 +103,9 @@ try {
         "/DAppVersion=$Version" `
         "/DSourceBinDir=$resolvedSourceBinDir" `
         "/DOutputDir=$resolvedOutputDir" `
-        "/DUIRuntime=$uiRuntimeEffective" `
+        "/DUIRuntime=$UIRuntime" `
         "/DUIRuntimeRequested=$UIRuntime" `
+        "/DUIBinaryName=$uiBinaryName" `
         $resolvedInstallerScript
 
     if ($LASTEXITCODE -ne 0) {

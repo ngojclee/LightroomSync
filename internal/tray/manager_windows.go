@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf16"
 )
 
@@ -53,9 +54,10 @@ func (m *Manager) Start(_ context.Context) error {
 	encoded := encodePowerShellCommand(script)
 
 	var lastErr error
-	for _, shell := range []string{"powershell", "pwsh"} {
+	for _, shell := range []string{"powershell.exe", "pwsh.exe", "powershell", "pwsh"} {
 		cmd := exec.Command(
 			shell,
+			"-Sta",
 			"-NoProfile",
 			"-ExecutionPolicy",
 			"Bypass",
@@ -67,6 +69,19 @@ func (m *Manager) Start(_ context.Context) error {
 			lastErr = err
 			continue
 		}
+
+		// Detect scripts that exit immediately (common when WinForms fails to initialize).
+		exitCh := make(chan error, 1)
+		go func() {
+			exitCh <- cmd.Wait()
+		}()
+		select {
+		case err := <-exitCh:
+			lastErr = fmt.Errorf("%s exited early: %w", shell, err)
+			continue
+		case <-time.After(1200 * time.Millisecond):
+		}
+
 		m.cmd = cmd
 		return nil
 	}
@@ -121,6 +136,20 @@ $AgentPid = %d
 $UIExe = '%s'
 $PipeName = '%s'
 $StatusFile = '%s'
+$TrayDir = [System.IO.Path]::GetDirectoryName($StatusFile)
+if ([string]::IsNullOrWhiteSpace($TrayDir)) {
+    $TrayDir = $env:TEMP
+}
+$TrayLog = [System.IO.Path]::Combine($TrayDir, 'tray-host.log')
+
+function Write-TrayLog([string]$message) {
+    try {
+        $line = (Get-Date).ToString('yyyy-MM-dd HH:mm:ss') + ' ' + $message
+        Add-Content -LiteralPath $TrayLog -Value $line -Encoding UTF8
+    } catch {}
+}
+
+Write-TrayLog ('tray host booting (ui=' + $UIExe + ', pid=' + $AgentPid + ')')
 
 function Invoke-UiAction([string]$action) {
     if ([string]::IsNullOrWhiteSpace($UIExe)) { return }
@@ -131,8 +160,22 @@ function Invoke-UiAction([string]$action) {
 
 $notify = New-Object System.Windows.Forms.NotifyIcon
 $notify.Text = $AppName
-$notify.Icon = [System.Drawing.SystemIcons]::Application
+try {
+    if (-not [string]::IsNullOrWhiteSpace($UIExe) -and (Test-Path $UIExe)) {
+        $notify.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($UIExe)
+    } else {
+        $notify.Icon = [System.Drawing.SystemIcons]::Application
+    }
+} catch {
+    $notify.Icon = [System.Drawing.SystemIcons]::Application
+}
+if ($null -eq $notify.Icon) {
+    $notify.Icon = [System.Drawing.SystemIcons]::Application
+}
 $notify.Visible = $true
+$notify.Visible = $false
+$notify.Visible = $true
+Write-TrayLog 'notify icon visible=true'
 
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
 $statusItem = New-Object System.Windows.Forms.ToolStripMenuItem('Status: starting...')
@@ -158,7 +201,7 @@ $menu.Items.Add('-') | Out-Null
 $exitItem = New-Object System.Windows.Forms.ToolStripMenuItem('Exit Agent')
 $exitItem.Add_Click({
     try {
-        if ($AgentPid -gt 0) {
+        if (($AgentPid -as [int]) -gt 0) {
             Stop-Process -Id $AgentPid -Force -ErrorAction SilentlyContinue
         }
     } catch {}
@@ -174,12 +217,37 @@ $notify.Add_DoubleClick({
     } catch {}
 })
 
+function Get-BadgedIcon {
+    param([System.Drawing.Icon]$BaseIcon, [string]$HtmlColor)
+    try {
+        $bmp = New-Object System.Drawing.Bitmap 16, 16
+        $g = [System.Drawing.Graphics]::FromImage($bmp)
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $g.DrawIcon($BaseIcon, New-Object System.Drawing.Rectangle(0, 0, 16, 16))
+        
+        $color = [System.Drawing.ColorTranslator]::FromHtml($HtmlColor)
+        $brush = New-Object System.Drawing.SolidBrush($color)
+        $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::Black, 1)
+        
+        $g.FillEllipse($brush, 9, 9, 6, 6)
+        $g.DrawEllipse($pen, 9, 9, 6, 6)
+        
+        $g.Dispose()
+        $ptr = $bmp.GetHicon()
+        return [System.Drawing.Icon]::FromHandle($ptr)
+    } catch {
+        return $BaseIcon
+    }
+}
+$OriginalIcon = $notify.Icon
+
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 1000
 $timer.Add_Tick({
-    if ($AgentPid -gt 0) {
+    if (($AgentPid -as [int]) -gt 0) {
         $alive = Get-Process -Id $AgentPid -ErrorAction SilentlyContinue
         if (-not $alive) {
+            Write-TrayLog 'agent process not found; shutting tray host'
             $timer.Stop()
             $notify.Visible = $false
             $notify.Dispose()
@@ -199,6 +267,21 @@ $timer.Add_Tick({
                 }
                 $statusItem.Text = 'Status: ' + $statusText
                 $notify.Text = (($AppName + ' - ' + $statusText).Substring(0, [Math]::Min(($AppName + ' - ' + $statusText).Length, 63)))
+                
+                if ($obj.tray_color) {
+                    $tc = [string]$obj.tray_color
+                    if ($tc -eq 'green') {
+                        $notify.Icon = Get-BadgedIcon -BaseIcon $OriginalIcon -HtmlColor '#00FF00'
+                    } elseif ($tc -eq 'blue') {
+                        $notify.Icon = Get-BadgedIcon -BaseIcon $OriginalIcon -HtmlColor '#00BFFF'
+                    } elseif ($tc -eq 'yellow' -or $tc -eq 'orange') {
+                        $notify.Icon = Get-BadgedIcon -BaseIcon $OriginalIcon -HtmlColor '#FFA500'
+                    } elseif ($tc -eq 'red') {
+                        $notify.Icon = Get-BadgedIcon -BaseIcon $OriginalIcon -HtmlColor '#FF0000'
+                    } else {
+                        $notify.Icon = $OriginalIcon
+                    }
+                }
             }
         } catch {}
     }
@@ -206,6 +289,7 @@ $timer.Add_Tick({
 $timer.Start()
 
 [System.Windows.Forms.Application]::Run()
+Write-TrayLog 'tray host exited'
 $notify.Visible = $false
 $notify.Dispose()
 `, appName, opts.AgentPID, uiExe, pipe, statusPath)

@@ -62,6 +62,69 @@ func TestCheckerCheckLatest(t *testing.T) {
 	}
 }
 
+func TestCheckerCheckLatest_SelectsMatchingAppFromHubReleases(t *testing.T) {
+	responseBody := `[
+			{
+				"tag_name":"OtherTool-v9.9.9",
+				"name":"OtherTool-v9.9.9",
+				"body":"Other app release",
+				"html_url":"https://example.com/release/other",
+				"published_at":"2026-03-30T00:00:00Z",
+				"assets":[
+					{"name":"OtherToolSetup.exe","browser_download_url":"https://example.com/download/other.exe","size":1234}
+				]
+			},
+			{
+				"tag_name":"LightroomSync-v2.1.0.0",
+				"name":"LightroomSync-v2.1.0.0",
+				"body":"LightroomSync release notes",
+				"html_url":"https://example.com/release/lightroomsync",
+				"published_at":"2026-03-30T01:02:03Z",
+				"assets":[
+					{"name":"LightroomSyncInstaller-v2.1.0.0.exe","browser_download_url":"https://example.com/download/lightroomsync.exe","size":5678}
+				]
+			}
+		]`
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(responseBody)),
+				Request:    req,
+			}, nil
+		}),
+	}
+
+	checker := NewChecker(CheckerOptions{
+		Repository:       "ngojclee/win-toolbox",
+		AppName:          "LightroomSync",
+		LatestReleaseURL: "https://example.invalid/releases",
+		HTTPClient:       client,
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	got, err := checker.CheckLatest(ctx, "v2.0.0.0")
+	if err != nil {
+		t.Fatalf("CheckLatest error: %v", err)
+	}
+	if !got.HasUpdate {
+		t.Fatalf("expected has update true, got false: %#v", got)
+	}
+	if got.LatestVersion != "v2.1.0.0" {
+		t.Fatalf("LatestVersion=%q, want v2.1.0.0", got.LatestVersion)
+	}
+	if got.AssetName != "LightroomSyncInstaller-v2.1.0.0.exe" {
+		t.Fatalf("AssetName=%q", got.AssetName)
+	}
+	if !strings.Contains(got.AssetURL, "lightroomsync.exe") {
+		t.Fatalf("AssetURL=%q", got.AssetURL)
+	}
+}
+
 func TestDownloadToFile(t *testing.T) {
 	const payload = "hello-update"
 	client := &http.Client{

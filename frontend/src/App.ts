@@ -1,4 +1,5 @@
-import { executeAction, selectDirectory, selectFile } from "./bridge";
+import { executeAction, selectDirectory, selectFile, exitApplication, launchAgent, syncMinimizeToTray, discoverPresets } from "./bridge";
+import { appTemplate } from "./template";
 import type {
   ActionEnvelope,
   AppStatus,
@@ -9,7 +10,7 @@ import type {
   SubscribeLogsResult
 } from "./types";
 
-type TabKey = "status" | "settings" | "backups" | "logs" | "update";
+type TabKey = "status" | "settings" | "backups" | "logs" | "update" | "about";
 type BannerKind = "error" | "info" | "success";
 
 interface InvokeOptions {
@@ -34,6 +35,9 @@ interface UIState {
   logsLastId: number;
   logLevel: string;
   update: CheckUpdateResult;
+  presetCategoryOptions: string[];
+  disconnectFailCount: number;
+  overlayDismissed: boolean;
 }
 
 interface Refs {
@@ -65,6 +69,10 @@ interface Refs {
   inputMaxBackups: HTMLInputElement;
   chkPresetSyncEnabled: HTMLInputElement;
   inputPresetCategories: HTMLInputElement;
+  presetChecklist: HTMLDivElement;
+  btnPresetSelectAll: HTMLButtonElement;
+  btnPresetClear: HTMLButtonElement;
+  btnScanPresets: HTMLButtonElement;
   btnGetConfig: HTMLButtonElement;
   btnSaveConfig: HTMLButtonElement;
   btnBrowseBackup: HTMLButtonElement;
@@ -82,8 +90,13 @@ interface Refs {
   updateHasUpdate: HTMLSpanElement;
   updateNotes: HTMLTextAreaElement;
   btnCheckUpdate: HTMLButtonElement;
+  btnForceDownloadLatest: HTMLButtonElement;
   btnDownloadUpdate: HTMLButtonElement;
-  btnThemeToggle: HTMLButtonElement;
+  btnExitApp: HTMLButtonElement;
+  agentOverlay: HTMLDivElement;
+  btnLaunchAgent: HTMLButtonElement;
+  btnDismissOverlay: HTMLButtonElement;
+  agentOverlayStatus: HTMLParagraphElement;
 }
 
 function envValue(key: string, fallback = "unknown"): string {
@@ -152,6 +165,8 @@ class FrontendShell {
   private readonly refs: Refs;
   private readonly pipeName: string;
   private readonly version: string;
+  private readonly connectingGraceMs = 3000;
+  private readonly bootstrapStartedAt = Date.now();
   private readonly inFlight = new Set<string>();
   private readonly disposeHandlers: Array<() => void> = [];
   private statusTimer: number | undefined;
@@ -184,7 +199,10 @@ class FrontendShell {
       logs: [],
       logsLastId: 0,
       logLevel: "ALL",
-      update: {}
+      update: {},
+      presetCategoryOptions: ["Develop Presets", "Export Presets", "Watermarks"],
+      disconnectFailCount: 0,
+      overlayDismissed: false
     };
 
     this.root.innerHTML = this.template();
@@ -202,232 +220,80 @@ class FrontendShell {
   }
 
   private template(): string {
-    return `
-      <main class="app-shell">
-        <header class="topbar">
-          <div>
-            <h1>Lightroom Sync</h1>
-            <p class="subtitle">Wave 3 Frontend Shell (Wails UI)</p>
-          </div>
-          <div class="runtime-meta">
-            <div><strong>Version:</strong> ${this.version}</div>
-            <div><strong>Pipe:</strong> ${this.pipeName}</div>
-          </div>
-        </header>
+    return appTemplate;
+  }
 
-        <section class="statusline">
-          <span id="connection-badge" class="badge disconnected">Disconnected</span>
-          <span id="connection-detail" class="connection-detail">Bridge unavailable</span>
-          <span class="spacer"></span>
-          <span class="last-refresh">Last refresh: <strong id="last-refresh">-</strong></span>
-        </section>
-      <div class="app-layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-          <div class="brand">
-            <div class="brand-icon">❖</div>
-            <div class="brand-name">Lightroom Sync</div>
-          </div>
-          <nav class="tabs-nav">
-            <button class="tab-button is-active" data-tab="status">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-              Status
-            </button>
-            <button class="tab-button" data-tab="settings">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Settings
-            </button>
-            <button class="tab-button" data-tab="backups">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Backups
-            </button>
-            <button class="tab-button" data-tab="logs">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
-              Logs
-            </button>
-            <button class="tab-button" data-tab="update">
-              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/></svg>
-              Update
-            </button>
-          </nav>
-          <div class="sidebar-footer">
-            <button id="btn-theme-toggle" class="theme-toggle">Try Light Mode</button>
-          </div>
-        </aside>
+  private normalizeCategories(values: string[]): string[] {
+    const seen = new Set<string>();
+    const output: string[] = [];
+    values.forEach((raw) => {
+      const value = raw.trim();
+      if (value === "") {
+        return;
+      }
+      const key = value.toLowerCase();
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      output.push(value);
+    });
+    return output.sort((a, b) => a.localeCompare(b));
+  }
 
-        <!-- Main Workspace -->
-        <main class="main-area">
-          <header class="topbar">
-            <div class="topbar-left">
-              <h1 id="view-title">Dashboard Status</h1>
-              <span id="connection-badge" class="badge disconnected">Disconnected</span>
-              <span id="connection-detail" class="connection-detail" style="display:none;"></span>
-            </div>
-            <div class="runtime-meta">
-              <div>Version: <strong>${this.version}</strong></div>
-              <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px;">Pipe: ${this.pipeName}</div>
-            </div>
-          </header>
+  private parseCategoriesInput(value: string): string[] {
+    return this.normalizeCategories(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+    );
+  }
 
-          <div class="content-wrapper">
-            <div id="banner" class="banner banner-hidden">
-              <span id="banner-text"></span>
-            </div>
+  private syncCategoryInputFromChecklist(): void {
+    const checked = Array.from(
+      this.refs.presetChecklist.querySelectorAll<HTMLInputElement>('input[type="checkbox"]:checked')
+    ).map((checkbox) => checkbox.value);
+    this.refs.inputPresetCategories.value = this.normalizeCategories(checked).join(", ");
+  }
 
-            <!-- Panel: Status -->
-            <div id="panel-status" class="tab-panel">
-              <div class="card status-grid">
-                <div class="status-card">
-                  <div class="status-label">Overall Status</div>
-                  <div class="status-value" id="status-text">-</div>
-                </div>
-                <div class="status-card">
-                  <div class="status-label">Tray Status Color</div>
-                  <div class="status-value" id="status-tray-color">-</div>
-                </div>
-                <div class="status-card">
-                  <div class="status-label">Sync Progress</div>
-                  <div class="status-value syncing" id="status-sync-progress">-</div>
-                </div>
-                <div class="status-card">
-                  <div class="status-label">Paused State</div>
-                  <div class="status-value" id="status-sync-paused">-</div>
-                </div>
-                <div class="status-card" style="grid-column: 1 / -1;">
-                  <div class="status-label">Monitor Errors</div>
-                  <div class="status-value" id="status-monitor-errors" style="color: var(--danger); font-size: 1rem;">-</div>
-                </div>
-              </div>
+  private renderPresetChecklist(): void {
+    const selected = new Set(this.parseCategoriesInput(this.refs.inputPresetCategories.value).map((it) => it.toLowerCase()));
+    const options = this.normalizeCategories([
+      ...this.state.presetCategoryOptions,
+      ...this.parseCategoriesInput(this.refs.inputPresetCategories.value)
+    ]);
 
-              <div class="actions">
-                <button id="btn-sync-now" class="primary">Sync Now</button>
-                <button id="btn-pause-sync">Pause Sync</button>
-                <button id="btn-resume-sync">Resume Sync</button>
-                <button id="btn-refresh-status" style="margin-left: auto;">Refresh Status</button>
-                <span id="last-refresh" style="align-self: flex-end; font-size: 0.8rem; color: var(--text-muted); display:inline-block; margin-bottom: 12px; margin-left:12px;">-</span>
-              </div>
-            </div>
+    this.state.presetCategoryOptions = options;
+    this.refs.presetChecklist.innerHTML = "";
 
-            <!-- Panel: Settings -->
-            <div id="panel-settings" class="tab-panel is-hidden">
-              <div class="card">
-                <h2>Configuration Profile</h2>
-                <div class="grid two-col">
-                  <div class="full">
-                    <label for="cfg-backup-folder">Backup Destination Directory</label>
-                    <div style="display: flex; gap: 8px;">
-                      <input id="cfg-backup-folder" type="text" placeholder="D:\\Backups" style="flex: 1;" />
-                      <button id="btn-browse-backup" class="secondary" style="width: auto; padding: 0 16px;">Browse</button>
-                    </div>
-                  </div>
-                  <div class="full">
-                    <label for="cfg-catalog-path">Lightroom Catalog Source Path</label>
-                    <div style="display: flex; gap: 8px;">
-                      <input id="cfg-catalog-path" type="text" placeholder="E:\\Lightroom\\Master.lrcat" style="flex: 1;" />
-                      <button id="btn-browse-catalog" class="secondary" style="width: auto; padding: 0 16px;">Browse</button>
-                    </div>
-                  </div>
-                  <div>
-                    <label for="cfg-heartbeat">Heartbeat Send Interval (s)</label>
-                    <input id="cfg-heartbeat" type="number" min="1" />
-                  </div>
-                  <div>
-                    <label for="cfg-check-interval">File Watch Check Interval (s)</label>
-                    <input id="cfg-check-interval" type="number" min="1" />
-                  </div>
-                  <div>
-                    <label for="cfg-lock-timeout">Catalog Lock Timeout (s)</label>
-                    <input id="cfg-lock-timeout" type="number" min="1" />
-                  </div>
-                  <div>
-                    <label for="cfg-max-backups">Max Retained Backups limit</label>
-                    <input id="cfg-max-backups" type="number" min="1" />
-                  </div>
-                  <div class="full">
-                    <label for="cfg-preset-categories">Preset Subject Categories (comma-listed)</label>
-                    <input id="cfg-preset-categories" type="text" placeholder="Wedding, Studio, Street" />
-                  </div>
-                  <div class="checks">
-                    <label><input id="cfg-start-with-windows" type="checkbox" /> Launch cleanly on Windows Startup</label>
-                    <label><input id="cfg-start-minimized" type="checkbox" /> Keep Window Hidden at Launch</label>
-                    <label><input id="cfg-minimize-to-tray" type="checkbox" /> Route Close button to System Tray</label>
-                    <label><input id="cfg-auto-sync" type="checkbox" /> Enable Automatic Background Syncing</label>
-                    <label><input id="cfg-preset-sync-enabled" type="checkbox" /> Activate Secondary Preset Sync System</label>
-                  </div>
-                </div>
-                <div class="actions" style="margin-top: 32px; justify-content: flex-end;">
-                  <button id="btn-get-config">Re-fetch Profile</button>
-                  <button id="btn-save-config" class="primary">Save Configuration</button>
-                </div>
-              </div>
-            </div>
+    if (options.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "text-[11px] text-on-surface-variant/70";
+      empty.textContent = "Click Scan to load preset folders.";
+      this.refs.presetChecklist.appendChild(empty);
+      return;
+    }
 
-            <!-- Panel: Backups -->
-            <div id="panel-backups" class="tab-panel is-hidden">
-              <div class="card">
-                <h2>Generated Backups Archive</h2>
-                <div class="backup-list-container">
-                  <select id="backups-list" size="9"></select>
-                </div>
-                <div class="helper" id="backups-helper" style="margin-top: 12px; margin-bottom: 24px;">No backups cataloged.</div>
-                <div class="actions">
-                  <button id="btn-refresh-backups">Query Backups Archive</button>
-                  <button id="btn-sync-selected" class="primary">Initiate Restore for Selected</button>
-                </div>
-              </div>
-            </div>
+    options.forEach((category, index) => {
+      const label = document.createElement("label");
+      label.className = "flex items-center gap-2 px-2 py-1 rounded-md border border-outline-variant/20 bg-surface-container-low text-xs text-on-surface cursor-pointer";
 
-            <!-- Panel: Logs -->
-            <div id="panel-logs" class="tab-panel is-hidden">
-              <div class="card">
-                <h2>Transmission Event Logs</h2>
-                <div class="log-filters">
-                  <label for="logs-level" style="margin: 0; align-self: center;">Verbosity</label>
-                  <select id="logs-level" style="width: auto;">
-                    <option>ALL</option>
-                    <option>INFO</option>
-                    <option>WARN</option>
-                    <option>ERROR</option>
-                    <option>DEBUG</option>
-                  </select>
-                  <button id="btn-refresh-logs">Reload Output</button>
-                  <button id="btn-clear-logs">Purge Viewport</button>
-                </div>
-                <pre id="logs-output" class="logs-console">(idle output buffer)</pre>
-              </div>
-            </div>
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.value = category;
+      checkbox.id = `preset-cat-${index}`;
+      checkbox.className = "h-3.5 w-3.5 rounded border-outline-variant/40 bg-surface-container-lowest";
+      checkbox.checked = selected.has(category.toLowerCase());
+      checkbox.addEventListener("change", () => this.syncCategoryInputFromChecklist());
 
-            <!-- Panel: Update -->
-            <div id="panel-update" class="tab-panel is-hidden">
-               <div class="card">
-                <h2>Software Releases Lifecycle</h2>
-                <div class="grid two-col" style="margin-bottom: 24px;">
-                  <div class="status-card">
-                    <div class="status-label">Running Build</div>
-                    <div class="status-value" id="upd-current-version">-</div>
-                  </div>
-                  <div class="status-card">
-                    <div class="status-label">Upstream Release</div>
-                    <div class="status-value" id="upd-latest-version">-</div>
-                  </div>
-                  <div class="status-card" style="grid-column: 1 / -1; align-items:center;">
-                    <div class="status-label">Upgrade Viability</div>
-                    <div class="status-value" id="upd-has-update">-</div>
-                  </div>
-                </div>
-                <label for="upd-release-notes">Changelog & Patch Notes</label>
-                <textarea id="upd-release-notes" rows="8" readonly style="margin-bottom: 24px;"></textarea>
-                <div class="actions" style="justify-content: flex-end;">
-                  <button id="btn-check-update">Determine Upgrade Path</button>
-                  <button id="btn-download-update" class="primary">Deploy Software Update</button>
-                </div>
-               </div>
-            </div>
+      const text = document.createElement("span");
+      text.textContent = category;
 
-          </div>
-        </main>
-      </div>
-    `;
+      label.appendChild(checkbox);
+      label.appendChild(text);
+      this.refs.presetChecklist.appendChild(label);
+    });
   }
 
   private collectRefs(): Refs {
@@ -468,6 +334,10 @@ class FrontendShell {
       inputMaxBackups: byId<HTMLInputElement>("cfg-max-backups"),
       chkPresetSyncEnabled: byId<HTMLInputElement>("cfg-preset-sync-enabled"),
       inputPresetCategories: byId<HTMLInputElement>("cfg-preset-categories"),
+      presetChecklist: byId<HTMLDivElement>("cfg-preset-checklist"),
+      btnPresetSelectAll: byId<HTMLButtonElement>("btn-preset-select-all"),
+      btnPresetClear: byId<HTMLButtonElement>("btn-preset-clear"),
+      btnScanPresets: byId<HTMLButtonElement>("btn-scan-presets"),
       btnGetConfig: byId<HTMLButtonElement>("btn-get-config"),
       btnSaveConfig: byId<HTMLButtonElement>("btn-save-config"),
       btnBrowseBackup: byId<HTMLButtonElement>("btn-browse-backup"),
@@ -485,8 +355,13 @@ class FrontendShell {
       updateHasUpdate: byId<HTMLSpanElement>("upd-has-update"),
       updateNotes: byId<HTMLTextAreaElement>("upd-release-notes"),
       btnCheckUpdate: byId<HTMLButtonElement>("btn-check-update"),
+      btnForceDownloadLatest: byId<HTMLButtonElement>("btn-force-download-latest"),
       btnDownloadUpdate: byId<HTMLButtonElement>("btn-download-update"),
-      btnThemeToggle: byId<HTMLButtonElement>("btn-theme-toggle")
+      btnExitApp: byId<HTMLButtonElement>("btn-exit-app"),
+      agentOverlay: byId<HTMLDivElement>("agent-overlay"),
+      btnLaunchAgent: byId<HTMLButtonElement>("btn-launch-agent"),
+      btnDismissOverlay: byId<HTMLButtonElement>("btn-dismiss-overlay"),
+      agentOverlayStatus: byId<HTMLParagraphElement>("agent-overlay-status")
     };
   }
 
@@ -509,6 +384,22 @@ class FrontendShell {
 
     this.refs.btnGetConfig.addEventListener("click", () => void this.refreshConfig());
     this.refs.btnSaveConfig.addEventListener("click", () => void this.saveConfig());
+    this.refs.btnScanPresets.addEventListener("click", () => void this.scanPresets());
+    this.refs.btnPresetSelectAll.addEventListener("click", () => {
+      this.refs.presetChecklist.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.checked = true;
+      });
+      this.syncCategoryInputFromChecklist();
+    });
+    this.refs.btnPresetClear.addEventListener("click", () => {
+      this.refs.presetChecklist.querySelectorAll<HTMLInputElement>('input[type="checkbox"]').forEach((checkbox) => {
+        checkbox.checked = false;
+      });
+      this.syncCategoryInputFromChecklist();
+    });
+    this.refs.inputPresetCategories.addEventListener("input", () => {
+      this.renderPresetChecklist();
+    });
     this.refs.btnBrowseBackup.addEventListener("click", async () => {
       const dir = await selectDirectory("Select Backup Destination Directory");
       if (dir) {
@@ -544,19 +435,8 @@ class FrontendShell {
     });
 
     this.refs.btnCheckUpdate.addEventListener("click", () => void this.refreshUpdate());
+    this.refs.btnForceDownloadLatest.addEventListener("click", () => void this.forceDownloadLatest());
     this.refs.btnDownloadUpdate.addEventListener("click", () => void this.downloadUpdate());
-
-    this.refs.btnThemeToggle.addEventListener("click", () => {
-      const docEl = document.documentElement;
-      const isLight = docEl.getAttribute("data-theme") === "light";
-      if (isLight) {
-        docEl.removeAttribute("data-theme");
-        this.refs.btnThemeToggle.textContent = "Try Light Mode";
-      } else {
-        docEl.setAttribute("data-theme", "light");
-        this.refs.btnThemeToggle.textContent = "Try Dark Mode";
-      }
-    });
 
     // Handle Title update per tab
     this.refs.tabButtons.forEach((button) => {
@@ -567,6 +447,17 @@ class FrontendShell {
             viewTitle.textContent = tab.charAt(0).toUpperCase() + tab.slice(1) + " Dashboard";
         }
       });
+    });
+
+    // --- Lifecycle button ---
+    this.refs.btnExitApp.addEventListener("click", () => {
+      void exitApplication();
+    });
+
+    this.refs.btnLaunchAgent.addEventListener("click", () => void this.handleLaunchAgent());
+    this.refs.btnDismissOverlay.addEventListener("click", () => {
+      this.state.overlayDismissed = true;
+      this.hideAgentOverlay();
     });
   }
 
@@ -596,6 +487,7 @@ class FrontendShell {
     this.refs.tabPanels.forEach((panel) => {
       const matches = panel.id === `panel-${this.state.activeTab}`;
       panel.classList.toggle("is-hidden", !matches);
+      panel.classList.toggle("hidden", !matches);
     });
   }
 
@@ -663,9 +555,25 @@ class FrontendShell {
     this.refs.lastRefresh.textContent = this.state.lastRefresh;
   }
 
+  private isInConnectingGracePeriod(): boolean {
+    return Date.now() - this.bootstrapStartedAt < this.connectingGraceMs;
+  }
+
+  private shouldShowDisconnectedState(): boolean {
+    return !this.state.connected && !this.isInConnectingGracePeriod() && this.state.disconnectFailCount >= 3;
+  }
+
   private renderConnection(): void {
-    this.refs.connectionBadge.textContent = this.state.connected ? "Connected" : "Disconnected";
-    this.refs.connectionBadge.className = this.state.connected ? "badge connected" : "badge disconnected";
+    if (this.state.connected) {
+      this.refs.connectionBadge.textContent = "Connected";
+      this.refs.connectionBadge.className = "badge connected";
+    } else if (this.shouldShowDisconnectedState()) {
+      this.refs.connectionBadge.textContent = "Disconnected";
+      this.refs.connectionBadge.className = "badge disconnected";
+    } else {
+      this.refs.connectionBadge.textContent = "Connecting...";
+      this.refs.connectionBadge.className = "badge connecting";
+    }
     this.refs.connectionDetail.textContent = this.state.connectionDetail;
   }
 
@@ -696,12 +604,20 @@ class FrontendShell {
     this.refs.inputLockTimeout.value = String(asNumber(cfg.lock_timeout, 120));
     this.refs.inputMaxBackups.value = String(asNumber(cfg.max_catalog_backups, 5));
     this.refs.chkPresetSyncEnabled.checked = asBoolean(cfg.preset_sync_enabled, true);
-    this.refs.inputPresetCategories.value = (cfg.preset_categories ?? []).join(", ");
+    this.state.presetCategoryOptions = this.normalizeCategories([
+      ...this.state.presetCategoryOptions,
+      ...(cfg.preset_categories ?? [])
+    ]);
+    this.refs.inputPresetCategories.value = this.normalizeCategories(cfg.preset_categories ?? []).join(", ");
+    this.renderPresetChecklist();
   }
 
   private renderBackups(): void {
+    const preferredSize = Math.max(10, Math.min(18, this.state.backups.length + 2));
+    this.refs.backupsSelect.size = preferredSize;
     this.refs.backupsSelect.innerHTML = "";
     if (this.state.backups.length === 0) {
+      this.refs.backupsSelect.size = 10;
       const option = new Option("(No backups found)", "");
       this.refs.backupsSelect.add(option);
       this.refs.backupsSelect.value = "";
@@ -747,6 +663,9 @@ class FrontendShell {
     this.refs.updateLatestVersion.textContent = asString(this.state.update.latest_version, "-");
     this.refs.updateHasUpdate.textContent = String(asBoolean(this.state.update.has_update, false));
     this.refs.updateNotes.value = asString(this.state.update.release_notes, "");
+    this.refs.btnForceDownloadLatest.disabled =
+      asString(this.state.update.asset_url, "") === "" ||
+      asBoolean(this.state.update.download_in_progress, false);
     this.refs.btnDownloadUpdate.disabled =
       !asBoolean(this.state.update.has_update, false) ||
       asString(this.state.update.asset_url, "") === "" ||
@@ -761,7 +680,11 @@ class FrontendShell {
     this.markRefresh();
 
     if (!envelope.ok) {
+      this.state.disconnectFailCount += 1;
       this.setConnection(false, envelope.error ?? "Agent unavailable");
+      if (this.shouldShowDisconnectedState()) {
+        this.showAgentOverlay();
+      }
       if (!options.quietError) {
         this.setBanner("error", `${action}: ${envelope.error ?? "Failed to reach agent."}`);
       }
@@ -778,6 +701,11 @@ class FrontendShell {
 
     if (!options.quietError) {
       this.clearBanner();
+    }
+    // Reset disconnect counter on success
+    this.state.disconnectFailCount = 0;
+    if (this.state.overlayDismissed === false) {
+      this.hideAgentOverlay();
     }
     return envelope;
   }
@@ -864,15 +792,37 @@ class FrontendShell {
     });
   }
 
+  private async scanPresets(): Promise<void> {
+    await this.withInFlight("scan-presets", async () => {
+      this.refs.btnScanPresets.disabled = true;
+      this.refs.btnScanPresets.textContent = "Scanning";
+      try {
+        const presets = await discoverPresets();
+        if (presets && presets.length > 0) {
+          this.state.presetCategoryOptions = this.normalizeCategories([
+            ...this.state.presetCategoryOptions,
+            ...presets
+          ]);
+          this.renderPresetChecklist();
+          this.setBanner("info", `Discovered ${presets.length} preset folders. Tick the ones you want, then click Save.`);
+        } else {
+          this.setBanner("error", "No presets discovered.");
+        }
+      } catch (err) {
+        this.setBanner("error", "Failed to discover presets.");
+      } finally {
+        this.refs.btnScanPresets.disabled = false;
+        this.refs.btnScanPresets.textContent = "Scan";
+      }
+    });
+  }
+
   private async saveConfig(): Promise<void> {
     const heartbeat = toInt(this.refs.inputHeartbeat.value, 30);
     const checkInterval = toInt(this.refs.inputCheckInterval.value, 60);
     const lockTimeout = toInt(this.refs.inputLockTimeout.value, 120);
     const maxBackups = toInt(this.refs.inputMaxBackups.value, 5);
-    const categories = this.refs.inputPresetCategories.value
-      .split(",")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0);
+    const categories = this.parseCategoriesInput(this.refs.inputPresetCategories.value);
 
     if (lockTimeout < heartbeat) {
       this.setBanner("error", "Lock Timeout must be greater than or equal to Heartbeat Interval.");
@@ -903,6 +853,8 @@ class FrontendShell {
       try {
         const result = await this.invoke("save-config", JSON.stringify(payload));
         if (result.ok && result.success) {
+          // Sync minimize_to_tray to WailsApp backend
+          syncMinimizeToTray(this.refs.chkMinimizeToTray.checked);
           this.setBanner("success", "Configuration saved.");
           await this.refreshStatus({ quietError: true, silent: true });
           await this.refreshConfig({ quietError: true, silent: true });
@@ -1009,6 +961,7 @@ class FrontendShell {
     await this.withInFlight("refresh:update", async () => {
       if (!options.silent) {
         this.refs.btnCheckUpdate.disabled = true;
+        this.refs.btnForceDownloadLatest.disabled = true;
       }
       try {
         const result = await this.invoke("check-update", "", { quietError: options.quietError });
@@ -1025,6 +978,7 @@ class FrontendShell {
       } finally {
         if (!options.silent) {
           this.refs.btnCheckUpdate.disabled = false;
+          this.renderUpdate();
         }
       }
     });
@@ -1047,11 +1001,56 @@ class FrontendShell {
       try {
         const result = await this.invoke("download-update", payload);
         if (result.ok && result.success) {
-          this.setBanner("success", "Download started.");
+          const data = asRecord(result.data);
+          const destination = asString(data?.destination_path);
+          this.setBanner("success", destination ? `Download started: ${destination}` : "Download started.");
           await this.refreshUpdate({ quietError: true, silent: true });
         }
       } finally {
         this.refs.btnDownloadUpdate.disabled = false;
+      }
+    });
+  }
+
+  private async forceDownloadLatest(): Promise<void> {
+    await this.withInFlight("mutate:force-download-latest", async () => {
+      this.refs.btnForceDownloadLatest.disabled = true;
+      try {
+        // Always refresh latest release first to force using current latest asset URL.
+        const check = await this.invoke("check-update", "", { quietError: true });
+        if (!check.ok || !check.success) {
+          this.setBanner("error", "Cannot resolve latest release. Check Update failed.");
+          return;
+        }
+
+        const release = asRecord(check.data);
+        if (!release) {
+          this.setBanner("error", "Invalid update metadata received.");
+          return;
+        }
+        this.state.update = release as CheckUpdateResult;
+        this.renderUpdate();
+
+        const assetUrl = asString(release.asset_url);
+        const assetName = asString(release.asset_name);
+        if (!assetUrl) {
+          this.setBanner("error", "Latest release has no downloadable asset.");
+          return;
+        }
+
+        const payload = JSON.stringify({
+          asset_url: assetUrl,
+          asset_name: assetName
+        });
+        const result = await this.invoke("download-update", payload);
+        if (result.ok && result.success) {
+          const data = asRecord(result.data);
+          const destination = asString(data?.destination_path);
+          this.setBanner("success", destination ? `Force download started: ${destination}` : "Force download started.");
+          await this.refreshUpdate({ quietError: true, silent: true });
+        }
+      } finally {
+        this.renderUpdate();
       }
     });
   }
@@ -1063,10 +1062,46 @@ class FrontendShell {
     await this.refreshLogs(true, { quietError: true, silent: true });
     await this.refreshUpdate({ quietError: true, silent: true });
 
-    if (!this.state.connected) {
-      this.setBanner("info", "Agent is offline. You can keep using tabs; data refresh will recover automatically.");
+    if (this.shouldShowDisconnectedState()) {
+      this.showAgentOverlay();
     }
     this.startPolling();
+  }
+
+  // --- Agent overlay logic ---
+
+  private showAgentOverlay(): void {
+    if (this.state.overlayDismissed) return;
+    this.refs.agentOverlay.classList.remove("hidden");
+    this.refs.agentOverlayStatus.textContent = "";
+  }
+
+  private hideAgentOverlay(): void {
+    this.refs.agentOverlay.classList.add("hidden");
+  }
+
+  private async handleLaunchAgent(): Promise<void> {
+    this.refs.btnLaunchAgent.disabled = true;
+    this.refs.agentOverlayStatus.textContent = "Starting agent...";
+    try {
+      const result = await launchAgent();
+      if (result.ok === "true") {
+        this.refs.agentOverlayStatus.textContent = "Agent started! Connecting...";
+        this.hideAgentOverlay();
+        this.setBanner("success", "Agent launched successfully.");
+        // Reload all data
+        await this.refreshStatus({ quietError: true, silent: true });
+        await this.refreshConfig({ quietError: true, silent: true });
+        await this.refreshBackups({ quietError: true, silent: true });
+        await this.refreshLogs(true, { quietError: true, silent: true });
+      } else {
+        this.refs.agentOverlayStatus.textContent = `Failed: ${result.error || "Unknown error"}`;
+      }
+    } catch (err) {
+      this.refs.agentOverlayStatus.textContent = `Error: ${err}`;
+    } finally {
+      this.refs.btnLaunchAgent.disabled = false;
+    }
   }
 }
 
