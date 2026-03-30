@@ -40,7 +40,7 @@
 ### 1.2 Agent Skeleton
 
 - [x] Implement `cmd/agent/main.go` with single-instance mutex
-- [ ] Add tray bootstrap (`internal/tray`) with status label + menu items
+- [x] Add tray bootstrap (`internal/tray`) with status label + menu items
 - [x] Add graceful shutdown flow (stop workers, write OFFLINE, quit tray)
 
 ### 1.3 UI Skeleton

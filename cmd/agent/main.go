@@ -21,6 +21,7 @@ import (
 	"github.com/ngojclee/lightroom-sync/internal/monitor"
 	winplatform "github.com/ngojclee/lightroom-sync/internal/platform/windows"
 	syncpkg "github.com/ngojclee/lightroom-sync/internal/sync"
+	"github.com/ngojclee/lightroom-sync/internal/tray"
 )
 
 var Version = "dev"
@@ -77,6 +78,10 @@ func main() {
 	if migrationHint != "" {
 		appState.SetMigrationHint(migrationHint)
 	}
+	trayStatusPath, trayStatusErr := tray.DefaultStatusPath()
+	if trayStatusErr != nil {
+		log.Printf("[WARN] Tray status path unavailable: %v", trayStatusErr)
+	}
 	presetLocalRoot, presetRootErr := syncpkg.DefaultLightroomPresetRoot()
 	if presetRootErr != nil {
 		log.Printf("[WARN] Preset sync local root unavailable: %v", presetRootErr)
@@ -109,6 +114,34 @@ func main() {
 	startManaged(ctx, &wg, "operation-watchdog", func(ctx context.Context) {
 		watchdog.Run(ctx)
 	})
+	if strings.TrimSpace(trayStatusPath) != "" {
+		startManaged(ctx, &wg, "tray-status-publisher", func(ctx context.Context) {
+			writeTraySnapshot := func() {
+				snap := appState.Snapshot()
+				err := tray.WriteStatus(trayStatusPath, tray.StatusPayload{
+					StatusText:     snap.StatusText,
+					TrayColor:      snap.TrayColor,
+					SyncInProgress: snap.SyncInProgress,
+					SyncPaused:     snap.SyncPaused,
+					AutoSync:       snap.AutoSync,
+				})
+				if err != nil {
+					log.Printf("[WARN] Failed to publish tray status snapshot: %v", err)
+				}
+			}
+			writeTraySnapshot()
+			ticker := time.NewTicker(1 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					writeTraySnapshot()
+				}
+			}
+		})
+	}
 
 	enqueuePresetSync := func(trigger string) {
 		current := cfgMgr.Get()
@@ -601,8 +634,26 @@ func main() {
 		}
 	})
 
-	// --- Start tray icon ---
-	// TODO(phase1.2): Wire real tray with systray library
+	// --- Start tray host ---
+	uiExecutable := resolveUIExecutable(exePath)
+	trayManager := tray.NewManager(tray.Options{
+		AppName:      "Lightroom Sync",
+		AgentPID:     os.Getpid(),
+		UIExecutable: uiExecutable,
+		PipeName:     ipc.PipeName,
+		StatusPath:   trayStatusPath,
+	})
+	if err := trayManager.Start(ctx); err != nil {
+		log.Printf("[WARN] Tray bootstrap failed: %v", err)
+	} else {
+		log.Printf("[INFO] Tray bootstrap started (ui=%s)", uiExecutable)
+	}
+	defer func() {
+		if err := trayManager.Stop(); err != nil {
+			log.Printf("[WARN] Tray shutdown error: %v", err)
+		}
+	}()
+
 	log.Printf("[INFO] LightroomSync Agent %s started (minimized=%v)", Version, *minimized)
 	log.Printf("[INFO] Config: %s", cfgPath)
 	log.Printf("[INFO] State: %s", appState.Snapshot().StatusText)
@@ -809,4 +860,22 @@ func isEmptyConfigPatch(p ipc.SaveConfigPayload) bool {
 		p.PresetSyncEnabled == nil &&
 		p.PresetCategories == nil &&
 		p.LastSyncedTimestamp == nil
+}
+
+func resolveUIExecutable(agentExePath string) string {
+	if strings.TrimSpace(agentExePath) == "" {
+		return ""
+	}
+	dir := filepath.Dir(agentExePath)
+	candidates := []string{
+		filepath.Join(dir, "LightroomSyncUI.exe"),
+		filepath.Join(dir, "ui.exe"),
+		filepath.Join(dir, "LightroomSyncUI"),
+	}
+	for _, candidate := range candidates {
+		if _, err := os.Stat(candidate); err == nil {
+			return candidate
+		}
+	}
+	return candidates[0]
 }

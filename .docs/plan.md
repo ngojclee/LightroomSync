@@ -30,6 +30,7 @@
 - Watermark/logo sync compatibility is now implemented for `.lrtemplate` and `.lrsmv`, including logo copy dedupe (size check) and path rewrite for local/network contexts.
 - Agent IPC now supports `GetConfig`/`SaveConfig` and `GetBackups`/`SyncBackup`, enabling richer GUI-driven end-to-end testing before full Wails UI.
 - Temporary Windows Forms GUI harness now supports config read/save (auto-sync toggle), backup listing, and sync-selected backup actions.
+- Agent now has a tray bootstrap module (`internal/tray`) with Windows NotifyIcon host, menu actions (`Open UI`, `Sync Now`, `Exit Agent`), and status label updates via shared status file.
 
 ## 1. Motivation & Problem Statement
 
