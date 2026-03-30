@@ -347,3 +347,8 @@ The Agent runs locally in the background and is controlled via IPC connections f
 - [ ] Archive Python release as `python-final`
 - [ ] Monitor production telemetry/log patterns for first 7 days
 - [ ] Decide macOS/Linux pilot based on architecture readiness
+
+## Session 2026-03-30 (v2.0.0.0 polish)
+- [x] **Fix Settings scrollbar**: Reduced `<main>` bottom padding from `pb-32` to `pb-8` to eliminate unnecessary scrollbar when content fits viewport.
+- [x] **Tray icon reliability**: Rewrote PowerShell tray host script with explicit error handling around WinForms assembly loading, multi-candidate icon resolution, pre-flight directory creation, and detailed logging (`tray-host.log`). Increased early-exit detection window to 2000ms.
+- [x] **Build + Release**: Built LightroomSync.exe + LightroomSyncAgent.exe (v2.0.0.0), created installer, pushed to GitHub main, published release on `win-toolbox` repo.
