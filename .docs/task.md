@@ -350,6 +350,7 @@ The Agent runs locally in the background and is controlled via IPC connections f
 
 ## Session 2026-03-30 (v2.0.1.0 — tray fix + single-app UX)
 - [x] **Fix tray icon crash**: Root cause was `$ErrorActionPreference = 'Stop'` at script top, causing any non-critical error to terminate the entire PowerShell tray host before log files could be written. Reverted to `SilentlyContinue` with explicit `-ErrorAction Stop` only on assembly loading.
+- [x] **Fix Agent CMD window**: Agent was built without `-H windowsgui` ldflags, causing it to always open a console window. Added `-H windowsgui` to agent build so it runs silently as a GUI subsystem app (PE Subsystem = 2).
 - [x] **Auto-launch Agent from UI**: `bootstrap()` in `App.ts` now automatically calls `launchAgent()` when Agent is unreachable — user opens ONE app and everything starts.
-- [x] **Single installer launch option**: Replaced two post-install checkboxes (Agent + UI) with one: "Launch Lightroom Sync" → starts UI which auto-starts Agent.
+- [x] **Installer cleanup**: Removed redundant "Start with Windows" task from install wizard (only "Desktop shortcut" remains). Auto-start registry is always set on install (user can toggle from Settings). Post-install shows single "Launch Lightroom Sync" checkbox.
 - [x] **Build + Release v2.0.1.0**: Pushed to GitHub main, published on `win-toolbox`.
