@@ -31,7 +31,12 @@ var Version = "dev"
 
 func main() {
 	minimized := flag.Bool("minimized", false, "Start minimized to tray")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(Version)
+		return
+	}
 
 	logBuffer := logstream.NewBuffer(800)
 	log.SetOutput(io.MultiWriter(os.Stderr, logstream.NewWriter(logBuffer)))

@@ -184,9 +184,9 @@
 
 ### 7.1 Build
 
-- [ ] Build `LightroomSyncAgent.exe` and `LightroomSyncUI.exe`
-- [ ] Inject version `x.y.z.k` using `-ldflags`
-- [ ] Validate symbols and file metadata
+- [x] Build `LightroomSyncAgent.exe` and `LightroomSyncUI.exe`
+- [x] Inject version `x.y.z.k` using `-ldflags`
+- [x] Validate symbols and file metadata
 
 ### 7.2 Installer
 

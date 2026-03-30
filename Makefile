@@ -1,8 +1,11 @@
 VERSION ?= 2.0.0.0
 
-.PHONY: all agent ui test clean
+.PHONY: all build agent ui test clean
 
-all: agent ui
+all: build
+
+build:
+	powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build_windows.ps1 -Version "$(VERSION)"
 
 agent:
 	go build -ldflags "-X main.Version=$(VERSION)" -o build/bin/LightroomSyncAgent.exe ./cmd/agent
@@ -11,7 +14,7 @@ ui:
 	go build -ldflags "-X main.Version=$(VERSION)" -o build/bin/LightroomSyncUI.exe ./cmd/ui
 
 test:
-	go test ./internal/... -v
+	go test ./... -count=1
 
 clean:
-	rm -rf build/bin/
+	powershell -NoProfile -ExecutionPolicy Bypass -Command "if (Test-Path 'build/bin') { Remove-Item -LiteralPath 'build/bin' -Recurse -Force }"

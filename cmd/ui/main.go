@@ -34,7 +34,12 @@ func main() {
 	action := flag.String("action", "", "Run one IPC action and print JSON result (ping|status|get-config|save-config|get-backups|sync-now|sync-backup|pause-sync|resume-sync|subscribe-logs|check-update|download-update)")
 	payload := flag.String("payload", "", "Optional JSON payload or value for action commands")
 	pipeName := flag.String("pipe", ipc.PipeName, "Named pipe path for Agent IPC")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+	if *showVersion {
+		fmt.Println(Version)
+		return
+	}
 
 	log.Printf("[INFO] LightroomSync UI %s", Version)
 
