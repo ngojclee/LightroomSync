@@ -42,6 +42,7 @@
 - Installer regression validation tooling is now added via `scripts/e2e_installer_regression.ps1`, including silent install/upgrade/uninstall flow checks and evidence artifacts (JSON + installer logs) under `build/e2e`.
 - Two-machine validation aggregation tooling is now added via `scripts/e2e_two_machine_compare.ps1` to compare cross-host snapshots/latency reports and emit pass/fail evidence in JSON and markdown.
 - Tray/UI smoke validation tooling is now added via `scripts/e2e_tray_ui_smoke.ps1`, covering IPC readiness, `sync_now` command reachability, tray status publication, and optional UI relaunch focus assertion.
+- Current desktop UI remains a temporary Windows Forms harness embedded in `cmd/ui/main.go`; Wails frontend/runtime cutover is now tracked as a dedicated remaining phase.
 - Agent now has a tray bootstrap module (`internal/tray`) with Windows NotifyIcon host, menu actions (`Open UI`, `Sync Now`, `Exit Agent`), and status label updates via shared status file.
 - Lock manager now tracks internal `session_id` and monotonic `epoch` metadata for heartbeat sequencing while preserving legacy on-disk lock wire format (`STATUS|MACHINE|TIMESTAMP`).
 - Phase 0.2 architecture spike automation is now added via `scripts/phase0_2_architecture_spike.ps1`, with runbook in `.docs/phase0-2-architecture-spike.md` to validate tray bootstrap + UI focus + IPC roundtrip.
@@ -257,3 +258,27 @@ Trong giai đoạn chuyển đổi, Go và Python phải chạy đồng thời t
 | Tray/UI process desync | authoritative state ở Agent + reconnect protocol |
 | AV/SmartScreen friction | signing-ready release flow, stable installer path, no packers |
 | Portability debt khi code Windows-specific | `internal/platform` + build tags từ đầu |
+
+## 11. Remaining Steps To Real GUI (Wails Cutover)
+
+Current state: core IPC/backend is production-grade, but `LightroomSyncUI.exe` is still running a temporary Windows Forms harness.  
+To ship the real GUI, we need **6 implementation steps**:
+
+1. **Wails App Bootstrap**
+   - Add Wails runtime project files (`wails.json`, frontend app shell, bindable backend entrypoint).
+   - Keep current `--action` CLI pathway for automation scripts.
+2. **UI API Extraction**
+   - Extract `cmd/ui` action handlers into shared package (`internal/uiapi`) used by both CLI mode and Wails backend.
+   - Preserve contract parity with existing named-pipe IPC commands.
+3. **Frontend Shell + Navigation**
+   - Implement real tabs/pages (Status/Settings/Backups/Logs/Update) in Wails frontend.
+   - Add connection-state banner and common error boundary.
+4. **State + Poll/Event Wiring**
+   - Wire periodic status polling + log cursor polling + command mutation flows.
+   - Prevent duplicate in-flight requests and ensure cancel-safe unmount behavior.
+5. **Build/Installer Cutover**
+   - Extend build scripts to produce Wails UI binary deterministically.
+   - Keep fallback harness target during transition until signoff is complete.
+6. **Validation + Switch Default**
+   - Add Wails-specific smoke checks.
+   - Run Phase 8.3 manual matrix with Wails UI and switch default UI target after pass.

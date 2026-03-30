@@ -153,7 +153,7 @@
 - [x] Rewrite paths for local and network contexts
 - [x] Skip redundant copy when size/hash unchanged
 
-## Phase 6: UI (Wails, IPC-Driven)
+## Phase 6: UI (IPC-Driven Harness Complete)
 
 ### 6.1 Settings Tab
 
@@ -179,6 +179,17 @@
 - [x] Show current/latest version and release notes
 - [x] Trigger update flow via Agent
 - [x] Render progress events
+
+## Phase 6R: Real Wails GUI Cutover (Pending)
+
+> Detailed tracker: [.docs/wails-ui-cutover/task.md](/d:/Python/projects/LightroomSync/.docs/wails-ui-cutover/task.md)
+
+- [ ] Bootstrap Wails runtime + keep `--action` CLI compatibility
+- [ ] Extract reusable UI API bridge from `cmd/ui` into `internal/uiapi`
+- [ ] Implement Wails frontend tabs (Status/Settings/Backups/Logs/Update)
+- [ ] Wire polling/event flows and robust in-flight/error handling
+- [ ] Integrate Wails artifact into build/installer pipeline
+- [ ] Execute Wails validation matrix and switch default UI runtime
 
 ## Phase 7: Build, Release, and Installer
 
