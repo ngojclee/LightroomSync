@@ -36,7 +36,7 @@ export const appTemplate = `
     </button>
   </nav>
   <div class="px-6 mt-auto space-y-2">
-    <p class="text-[10px] text-on-surface-variant/40 text-center mb-2 font-mono" id="sidebar-version">v2.0.6.202604071807</p>
+    <p class="text-[10px] text-on-surface-variant/40 text-center mb-2 font-mono" id="sidebar-version">v2.0.7.202604071812</p>
     <button id="btn-exit-app" class="w-full flex items-center space-x-2 justify-center text-error/70 hover:text-error font-semibold py-2 px-4 rounded-xl text-xs hover:bg-error/10 transition-colors" title="Stop Agent + close UI">
       <span class="material-symbols-outlined text-sm">power_settings_new</span>
       <span>Exit All</span>
@@ -395,7 +395,7 @@ export const appTemplate = `
           <span class="material-symbols-outlined text-on-primary text-4xl">sync</span>
         </div>
         <h1 class="font-headline text-2xl font-extrabold text-on-surface mb-1">Lightroom Sync</h1>
-        <p class="text-on-surface-variant text-sm mb-6" id="about-version">Version 2.0.6.202604071807</p>
+        <p class="text-on-surface-variant text-sm mb-6" id="about-version">Version 2.0.7.202604071812</p>
 
         <div class="glass-card p-6 rounded-xl bg-surface-container-low/80 max-w-md w-full text-center mb-6">
           <p class="text-xs text-on-surface-variant leading-relaxed">

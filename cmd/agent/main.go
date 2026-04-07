@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"syscall"
@@ -29,6 +30,8 @@ import (
 )
 
 var Version = "dev"
+
+var downloadedUpdateVersionPattern = regexp.MustCompile(`(?i)lightroomsync.*v?(\d+(?:\.\d+){2,3}).*\.(exe|msi)$`)
 
 func main() {
 	minimized := flag.Bool("minimized", false, "Start minimized to tray")
@@ -102,6 +105,9 @@ func main() {
 		Repository: "ngojclee/win-toolbox",
 		AppName:    "LightroomSync",
 	})
+	if err := cleanupDownloadedUpdates(Version); err != nil {
+		log.Printf("[WARN] update download cleanup failed: %v", err)
+	}
 	var updateMu sync.Mutex
 	var cachedLatestUpdate ipc.CheckUpdateResult
 	var hasCachedUpdate bool
@@ -1231,6 +1237,69 @@ func launchDownloadedUpdate(path string) error {
 	cmd := exec.Command("cmd", "/c", "start", "", path)
 	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008}
 	return cmd.Start()
+}
+
+func cleanupDownloadedUpdates(currentVersion string) error {
+	updateDir, err := defaultUpdateDownloadDir()
+	if err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(updateDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	now := time.Now().UTC()
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		name := strings.TrimSpace(entry.Name())
+		fullPath := filepath.Join(updateDir, name)
+		lowerName := strings.ToLower(name)
+
+		if strings.HasSuffix(lowerName, ".part") {
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				continue
+			}
+			if now.Sub(info.ModTime().UTC()) >= 30*time.Minute {
+				if removeErr := os.Remove(fullPath); removeErr == nil {
+					log.Printf("[INFO] removed stale partial update download: %s", fullPath)
+				}
+			}
+			continue
+		}
+
+		version := extractedDownloadedUpdateVersion(name)
+		if version == "" {
+			continue
+		}
+
+		cmp, cmpErr := updatepkg.CompareVersions(version, currentVersion)
+		if cmpErr != nil || cmp > 0 {
+			continue
+		}
+
+		if removeErr := os.Remove(fullPath); removeErr == nil {
+			log.Printf("[INFO] removed stale downloaded update: %s", fullPath)
+		}
+	}
+
+	return nil
+}
+
+func extractedDownloadedUpdateVersion(name string) string {
+	match := downloadedUpdateVersionPattern.FindStringSubmatch(strings.TrimSpace(name))
+	if len(match) < 2 {
+		return ""
+	}
+	return strings.TrimSpace(match[1])
 }
 
 func toIPCUpdateResult(release updatepkg.LatestRelease, downloadInProgress bool) ipc.CheckUpdateResult {
