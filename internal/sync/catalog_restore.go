@@ -7,8 +7,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 )
+
+// ProgressCallback is called with (current, total) file count during extraction.
+// Return false to abort the operation.
+type ProgressCallback func(current, total int) bool
 
 // RestoreOptions controls catalog restore behavior from backup zip.
 type RestoreOptions struct {
@@ -16,6 +21,8 @@ type RestoreOptions struct {
 	CleanupPatterns []string
 	// FlattenSingleRoot strips the top-level folder if zip is wrapped in a single root directory.
 	FlattenSingleRoot bool
+	// Progress, if provided, is called during extraction with file progress.
+	Progress ProgressCallback
 }
 
 // DefaultRestoreOptions returns safe defaults for Lightroom catalog restore.
@@ -27,6 +34,10 @@ func DefaultRestoreOptions() RestoreOptions {
 			"*.lrcat-journal",
 			"*.lrcat.lock",
 			"*.lrdata",
+			"lightroom_lock.txt",
+			"*-lock",
+			"*-shm",
+			"*-wal",
 		},
 		FlattenSingleRoot: true,
 	}
@@ -68,19 +79,16 @@ func ValidateZipIntegrity(ctx context.Context, zipPath string) error {
 
 // CleanupCatalogArtifacts removes old catalog artifacts before extracting a new backup.
 func CleanupCatalogArtifacts(ctx context.Context, destDir string, patterns []string) error {
-	for _, pattern := range patterns {
+	matches, err := collectCleanupMatches(ctx, destDir, patterns)
+	if err != nil {
+		return err
+	}
+	for _, match := range matches {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		patternPath := filepath.Join(destDir, pattern)
-		matches, err := filepath.Glob(patternPath)
-		if err != nil {
-			return fmt.Errorf("glob pattern %s: %w", pattern, err)
-		}
-		for _, match := range matches {
-			if err := os.RemoveAll(match); err != nil {
-				return fmt.Errorf("remove artifact %s: %w", match, err)
-			}
+		if err := os.RemoveAll(match); err != nil {
+			return fmt.Errorf("remove artifact %s: %w", match, err)
 		}
 	}
 	return nil
@@ -101,14 +109,17 @@ func RestoreCatalogFromZip(ctx context.Context, zipPath string, destDir string, 
 	if err := CleanupCatalogArtifacts(ctx, destDir, options.CleanupPatterns); err != nil {
 		return err
 	}
-	if err := ExtractZipSafe(ctx, zipPath, destDir, options.FlattenSingleRoot); err != nil {
+	if err := ExtractZipSafe(ctx, zipPath, destDir, options.FlattenSingleRoot, options.Progress); err != nil {
+		return err
+	}
+	if err := CleanupCatalogArtifacts(ctx, destDir, transientCleanupPatterns(options.CleanupPatterns)); err != nil {
 		return err
 	}
 	return nil
 }
 
 // ExtractZipSafe extracts a zip file with zip-slip protection.
-func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleRoot bool) error {
+func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleRoot bool, progress ProgressCallback) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -126,6 +137,15 @@ func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleR
 
 	rootPrefix, hasSingleRoot := detectSingleRootPrefix(reader.File)
 
+	// Count extractable files (skip directories)
+	totalFiles := 0
+	for _, file := range reader.File {
+		if !file.FileInfo().IsDir() {
+			totalFiles++
+		}
+	}
+
+	currentFile := 0
 	for _, file := range reader.File {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -158,7 +178,15 @@ func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleR
 			if err := os.MkdirAll(targetAbs, 0o755); err != nil {
 				return fmt.Errorf("create directory %s: %w", targetAbs, err)
 			}
+			if err := ensureWritablePath(targetAbs, true, file.Mode()); err != nil {
+				return fmt.Errorf("normalize directory attributes %s: %w", targetAbs, err)
+			}
 			continue
+		}
+
+		currentFile++
+		if progress != nil && !progress(currentFile, totalFiles) {
+			return ctx.Err()
 		}
 
 		if err := os.MkdirAll(filepath.Dir(targetAbs), 0o755); err != nil {
@@ -170,7 +198,7 @@ func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleR
 			return fmt.Errorf("open zip entry %s: %w", file.Name, err)
 		}
 
-		dst, err := os.OpenFile(targetAbs, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, file.Mode())
+		dst, err := os.OpenFile(targetAbs, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, writableMode(file.Mode(), false))
 		if err != nil {
 			src.Close()
 			return fmt.Errorf("create extracted file %s: %w", targetAbs, err)
@@ -188,6 +216,9 @@ func ExtractZipSafe(ctx context.Context, zipPath, destDir string, flattenSingleR
 		}
 		if closeSrcErr != nil {
 			return fmt.Errorf("close zip entry %s: %w", file.Name, closeSrcErr)
+		}
+		if err := ensureWritablePath(targetAbs, false, file.Mode()); err != nil {
+			return fmt.Errorf("normalize file attributes %s: %w", targetAbs, err)
 		}
 	}
 
@@ -253,4 +284,109 @@ func isWithinBase(targetAbs, baseAbs string) bool {
 	}
 	baseWithSep := baseAbs + string(os.PathSeparator)
 	return strings.HasPrefix(targetAbs, baseWithSep)
+}
+
+func collectCleanupMatches(ctx context.Context, destDir string, patterns []string) ([]string, error) {
+	collected := make(map[string]struct{})
+	err := filepath.WalkDir(destDir, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == destDir {
+			return nil
+		}
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(destDir, path)
+		if err != nil {
+			return fmt.Errorf("relative cleanup path %s: %w", path, err)
+		}
+		relPath = filepath.ToSlash(relPath)
+
+		for _, pattern := range patterns {
+			matched, err := cleanupPatternMatches(pattern, relPath, d.Name())
+			if err != nil {
+				return fmt.Errorf("match cleanup pattern %s: %w", pattern, err)
+			}
+			if matched {
+				collected[path] = struct{}{}
+				return nil
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]string, 0, len(collected))
+	for path := range collected {
+		out = append(out, path)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		depthI := strings.Count(filepath.ToSlash(out[i]), "/")
+		depthJ := strings.Count(filepath.ToSlash(out[j]), "/")
+		if depthI != depthJ {
+			return depthI > depthJ
+		}
+		return out[i] > out[j]
+	})
+	return out, nil
+}
+
+func cleanupPatternMatches(pattern, relPath, baseName string) (bool, error) {
+	target := baseName
+	if strings.Contains(pattern, "/") || strings.Contains(pattern, "\\") {
+		target = relPath
+	}
+
+	matched, err := filepath.Match(pattern, target)
+	if err != nil {
+		return false, err
+	}
+	if matched {
+		return true, nil
+	}
+
+	lowerPattern := strings.ToLower(filepath.ToSlash(pattern))
+	lowerTarget := strings.ToLower(filepath.ToSlash(target))
+	return filepath.Match(lowerPattern, lowerTarget)
+}
+
+func transientCleanupPatterns(patterns []string) []string {
+	if len(patterns) == 0 {
+		return nil
+	}
+
+	out := make([]string, 0, len(patterns))
+	for _, pattern := range patterns {
+		switch strings.ToLower(strings.TrimSpace(pattern)) {
+		case "*.lrcat.lock", "*.lrcat-journal", "lightroom_lock.txt", "*-lock", "*-shm", "*-wal":
+			out = append(out, pattern)
+		}
+	}
+	return out
+}
+
+func ensureWritablePath(path string, isDir bool, original os.FileMode) error {
+	return os.Chmod(path, writableMode(original, isDir))
+}
+
+func writableMode(mode os.FileMode, isDir bool) os.FileMode {
+	perm := mode.Perm()
+	if isDir {
+		if perm == 0 {
+			perm = 0o755
+		}
+		perm |= 0o700
+		return perm
+	}
+	if perm == 0 {
+		perm = 0o644
+	}
+	perm |= 0o600
+	return perm
 }

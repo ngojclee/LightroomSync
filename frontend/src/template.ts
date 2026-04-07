@@ -36,7 +36,7 @@ export const appTemplate = `
     </button>
   </nav>
   <div class="px-6 mt-auto space-y-2">
-    <p class="text-[10px] text-on-surface-variant/40 text-center mb-2 font-mono" id="sidebar-version">v2.0.0.0</p>
+    <p class="text-[10px] text-on-surface-variant/40 text-center mb-2 font-mono" id="sidebar-version">v2.0.5.202604071755</p>
     <button id="btn-exit-app" class="w-full flex items-center space-x-2 justify-center text-error/70 hover:text-error font-semibold py-2 px-4 rounded-xl text-xs hover:bg-error/10 transition-colors" title="Stop Agent + close UI">
       <span class="material-symbols-outlined text-sm">power_settings_new</span>
       <span>Exit All</span>
@@ -316,6 +316,15 @@ export const appTemplate = `
       </header>
       <div class="glass-panel p-6 rounded-xl border border-outline-variant/10 bg-surface-container-low/80 min-h-[360px] h-[calc(100vh-250px)] flex flex-col">
         <select id="backups-list" size="12" class="w-full flex-1 min-h-[260px] bg-surface-container-lowest border border-outline-variant/30 rounded-lg p-3 text-xs font-mono text-on-surface focus:ring-2 focus:ring-primary/50 overflow-y-auto mb-3 appearance-none"></select>
+        <div id="restore-progress-container" class="hidden mb-3">
+          <div class="flex items-center justify-between text-xs text-on-surface-variant mb-1">
+            <span id="restore-progress-label">Restoring...</span>
+            <span id="restore-progress-pct">0%</span>
+          </div>
+          <div class="h-1.5 bg-surface-container-lowest rounded-full overflow-hidden">
+            <div id="restore-progress-bar" class="h-full bg-gradient-to-r from-primary to-secondary transition-all duration-300 rounded-full" style="width: 0%"></div>
+          </div>
+        </div>
         <div id="backups-helper" class="text-xs text-on-surface-variant mb-4">No backups loaded.</div>
         <div class="flex justify-end gap-3">
           <button id="btn-refresh-backups" class="px-4 py-2 rounded-lg text-xs font-semibold text-on-surface hover:bg-surface-container transition-colors border border-outline-variant/30 disabled:opacity-50">Query Archive</button>
@@ -386,7 +395,7 @@ export const appTemplate = `
           <span class="material-symbols-outlined text-on-primary text-4xl">sync</span>
         </div>
         <h1 class="font-headline text-2xl font-extrabold text-on-surface mb-1">Lightroom Sync</h1>
-        <p class="text-on-surface-variant text-sm mb-6" id="about-version">Version 2.0.0.0</p>
+        <p class="text-on-surface-variant text-sm mb-6" id="about-version">Version 2.0.5.202604071755</p>
 
         <div class="glass-card p-6 rounded-xl bg-surface-container-low/80 max-w-md w-full text-center mb-6">
           <p class="text-xs text-on-surface-variant leading-relaxed">
