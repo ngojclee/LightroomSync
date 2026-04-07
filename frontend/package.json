@@ -1,7 +1,7 @@
 {
   "name": "lightroomsync-frontend",
   "private": true,
-  "version": "2.0.5.202604071755",
+  "version": "2.0.6.202604071807",
   "type": "module",
   "scripts": {
     "dev": "vite --port 34115 --strictPort",

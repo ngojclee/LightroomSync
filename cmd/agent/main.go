@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -703,7 +704,13 @@ func main() {
 				}
 
 				log.Printf("[INFO] update downloaded destination=%s", dest)
-				appState.SetWarning("Đã tải bản cập nhật thành công")
+				if launchErr := launchDownloadedUpdate(dest); launchErr != nil {
+					log.Printf("[WARN] update downloaded but launch failed: %v", launchErr)
+					appState.SetWarning("Đã tải bản cập nhật. Hãy mở file cài đặt thủ công.")
+				} else {
+					log.Printf("[INFO] update installer launched: %s", dest)
+					appState.SetWarning("Đã tải và mở bộ cài cập nhật")
+				}
 				go func() {
 					time.Sleep(4 * time.Second)
 					appState.RefreshDerivedStatus()
@@ -736,7 +743,10 @@ func main() {
 				}
 			}
 
-			jobName := "manual_sync_now_latest_backup"
+			jobName := "Syncing latest backup"
+			appState.SetCurrentJobName(jobName)
+			appState.SetRestoreProgress(0)
+			log.Printf("[INFO] Sync now started: backup_folder=%s", current.BackupFolder)
 			err := syncWorker.Enqueue(coordinator.SyncJob{
 				Name:           jobName,
 				OperationID:    "manual_sync_now",
@@ -744,13 +754,41 @@ func main() {
 				Execute: func(ctx context.Context) error {
 					backups, err := monitor.ListZipBackups(ctx, current.BackupFolder)
 					if err != nil {
+						log.Printf("[ERROR] Sync now failed to list backups: %v", err)
 						return err
 					}
 					if len(backups) == 0 {
+						log.Printf("[ERROR] Sync now: no backup zip found")
 						return errors.New("no backup zip found")
 					}
 					zipPath := backups[0].Path
-					return syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.DefaultRestoreOptions())
+					log.Printf("[INFO] Sync now: restoring latest backup %s", zipPath)
+					err = syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.RestoreOptions{
+						FlattenSingleRoot: true,
+						CleanupPatterns: []string{
+							"*.lrcat",
+							"*.lrcat-data",
+							"*.lrcat-journal",
+							"*.lrcat.lock",
+							"*.lrdata",
+							"lightroom_lock.txt",
+							"*-lock",
+							"*-shm",
+							"*-wal",
+						},
+						Progress: func(current, total int) bool {
+							if total > 0 {
+								appState.SetRestoreProgress(current * 100 / total)
+							}
+							return ctx.Err() == nil
+						},
+					})
+					if err != nil {
+						log.Printf("[ERROR] Sync now restore failed: %v", err)
+						return err
+					}
+					log.Printf("[INFO] Sync now completed: restored %s", zipPath)
+					return nil
 				},
 			})
 			if err != nil {
@@ -818,13 +856,41 @@ func main() {
 					Code:    ipc.CodeBadRequest,
 				}
 			}
-			jobName := "manual_sync_selected_backup"
+			jobName := "Restoring backup"
+			appState.SetCurrentJobName(jobName)
+			appState.SetRestoreProgress(0)
+			log.Printf("[INFO] Restore started: zip=%s dest=%s", zipPath, current.CatalogPath)
 			err = syncWorker.Enqueue(coordinator.SyncJob{
 				Name:           jobName,
 				OperationID:    fmt.Sprintf("manual_sync_backup_%d", time.Now().UTC().UnixNano()),
 				MaxRunDuration: 120 * time.Second,
 				Execute: func(ctx context.Context) error {
-					return syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.DefaultRestoreOptions())
+					err := syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.RestoreOptions{
+						FlattenSingleRoot: true,
+						CleanupPatterns: []string{
+							"*.lrcat",
+							"*.lrcat-data",
+							"*.lrcat-journal",
+							"*.lrcat.lock",
+							"*.lrdata",
+							"lightroom_lock.txt",
+							"*-lock",
+							"*-shm",
+							"*-wal",
+						},
+						Progress: func(current, total int) bool {
+							if total > 0 {
+								appState.SetRestoreProgress(current * 100 / total)
+							}
+							return ctx.Err() == nil
+						},
+					})
+					if err != nil {
+						log.Printf("[ERROR] Restore failed: %v", err)
+						return err
+					}
+					log.Printf("[INFO] Restore completed successfully: zip=%s", zipPath)
+					return nil
 				},
 			})
 			if err != nil {
@@ -1154,6 +1220,17 @@ func defaultUpdateDownloadDir() (string, error) {
 		return "", fmt.Errorf("LOCALAPPDATA environment variable is not set")
 	}
 	return filepath.Join(localAppData, "LightroomSync", "updates"), nil
+}
+
+func launchDownloadedUpdate(path string) error {
+	ext := strings.ToLower(strings.TrimSpace(filepath.Ext(path)))
+	if ext != ".exe" && ext != ".msi" {
+		return fmt.Errorf("downloaded asset is not directly launchable: %s", path)
+	}
+
+	cmd := exec.Command("cmd", "/c", "start", "", path)
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: 0x00000008}
+	return cmd.Start()
 }
 
 func toIPCUpdateResult(release updatepkg.LatestRelease, downloadInProgress bool) ipc.CheckUpdateResult {

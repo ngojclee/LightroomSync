@@ -12,12 +12,12 @@
         "Comments": "Lightroom Catalog & Preset Synchronization Agent",
         "CompanyName": "LuxeClaw Studio",
         "FileDescription": "Lightroom Sync Agent",
-        "FileVersion": "2.0.5.202604071755",
+        "FileVersion": "2.0.6.202604071807",
         "InternalName": "LightroomSyncAgent",
         "LegalCopyright": "© 2024-2026 LuxeClaw Studio. All rights reserved.",
         "OriginalFilename": "LightroomSyncAgent.exe",
         "ProductName": "Lightroom Sync",
-        "ProductVersion": "2.0.5.202604071755"
+        "ProductVersion": "2.0.6.202604071807"
     },
     "VarFileInfo": {
         "Translation": { "LangID": "0409", "CharsetID": "04B0" }

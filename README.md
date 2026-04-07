@@ -4,7 +4,7 @@
 
 > Two-process architecture: Background Agent (system tray) + Desktop UI (Wails)
 
-![Version](https://img.shields.io/badge/version-2.0.5.202604071755-blue)
+![Version](https://img.shields.io/badge/version-2.0.6.202604071807-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows%2064--bit-success)
 ![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)
 
@@ -62,7 +62,7 @@
 ## Installation
 
 ### Option 1: Installer (Recommended)
-1. Download `LightroomSyncSetup-v2.0.5.202604071755-windows-amd64.exe` from [Releases](https://github.com/ngojclee/win-toolbox/releases/tag/LightroomSync-v2.0.5.202604071755)
+1. Download `LightroomSyncSetup-v2.0.6.202604071807-windows-amd64.exe` from [Releases](https://github.com/ngojclee/win-toolbox/releases/tag/LightroomSync-v2.0.6.202604071807)
 2. Run installer → auto-registers startup + creates shortcuts
 3. Open **Lightroom Sync** from Start Menu or Desktop
 
@@ -121,10 +121,10 @@ See [.docs/sync-architecture.md](.docs/sync-architecture.md) for detailed docume
 ### Build
 ```powershell
 # Build both UI + Agent
-.\scripts\build_windows.ps1 -Version "2.0.5.202604071755"
+.\scripts\build_windows.ps1 -Version "2.0.6.202604071807"
 
 # Build installer
-.\scripts\build_installer.ps1 -Version "2.0.5.202604071755"
+.\scripts\build_installer.ps1 -Version "2.0.6.202604071807"
 ```
 
 ### Output
@@ -135,7 +135,7 @@ build/bin/
 └── build-metadata.json        # Build provenance
 
 build/installer/
-└── LightroomSyncSetup-v2.0.5.202604071755-windows-amd64.exe
+└── LightroomSyncSetup-v2.0.6.202604071807-windows-amd64.exe
 ```
 
 ---

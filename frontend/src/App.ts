@@ -82,6 +82,10 @@ interface Refs {
   btnBrowseCatalog: HTMLButtonElement;
   backupsSelect: HTMLSelectElement;
   backupsHelper: HTMLDivElement;
+  restoreProgressContainer: HTMLDivElement;
+  restoreProgressBar: HTMLDivElement;
+  restoreProgressLabel: HTMLSpanElement;
+  restoreProgressPct: HTMLSpanElement;
   btnRefreshBackups: HTMLButtonElement;
   btnSyncSelected: HTMLButtonElement;
   logLevelSelect: HTMLSelectElement;
@@ -351,6 +355,10 @@ class FrontendShell {
       btnBrowseCatalog: byId<HTMLButtonElement>("btn-browse-catalog"),
       backupsSelect: byId<HTMLSelectElement>("backups-list"),
       backupsHelper: byId<HTMLDivElement>("backups-helper"),
+      restoreProgressContainer: byId<HTMLDivElement>("restore-progress-container"),
+      restoreProgressBar: byId<HTMLDivElement>("restore-progress-bar"),
+      restoreProgressLabel: byId<HTMLSpanElement>("restore-progress-label"),
+      restoreProgressPct: byId<HTMLSpanElement>("restore-progress-pct"),
       btnRefreshBackups: byId<HTMLButtonElement>("btn-refresh-backups"),
       btnSyncSelected: byId<HTMLButtonElement>("btn-sync-selected"),
       logLevelSelect: byId<HTMLSelectElement>("logs-level"),
@@ -716,12 +724,11 @@ class FrontendShell {
     this.refs.updateHasUpdate.textContent = String(asBoolean(this.state.update.has_update, false));
     this.refs.updateNotes.value = asString(this.state.update.release_notes, "");
     this.refs.btnForceDownloadLatest.disabled =
-      asString(this.state.update.asset_url, "") === "" ||
-      asBoolean(this.state.update.download_in_progress, false);
+      asBoolean(this.state.update.download_in_progress, false) ||
+      this.inFlight.has("mutate:force-download-latest");
     this.refs.btnDownloadUpdate.disabled =
-      !asBoolean(this.state.update.has_update, false) ||
-      asString(this.state.update.asset_url, "") === "" ||
-      asBoolean(this.state.update.download_in_progress, false);
+      asBoolean(this.state.update.download_in_progress, false) ||
+      this.inFlight.has("mutate:download-update");
   }
 
   private async invoke(action: string, payload = "", options: InvokeOptions = {}): Promise<ActionEnvelope> {
@@ -950,17 +957,50 @@ class FrontendShell {
 
     await this.withInFlight("mutate:sync-backup", async () => {
       this.refs.btnSyncSelected.disabled = true;
+      // Show progress bar
+      this.refs.restoreProgressContainer.classList.remove("hidden");
+      this.refs.restoreProgressBar.style.width = "0%";
+      this.refs.restoreProgressLabel.textContent = "Preparing restore...";
+      this.refs.restoreProgressPct.textContent = "0%";
+
       try {
         const result = await this.invoke("sync-backup", selected);
         if (result.ok && result.success) {
-          this.setBanner("success", "Sync command sent.");
-          await this.refreshStatus({ quietError: true, silent: true });
+          this.setBanner("info", "Restoring backup...");
+          // Poll until restore completes
+          await this.pollRestoreProgress();
+          this.setBanner("success", "Restore completed successfully.");
           await this.refreshLogs(false, { quietError: true, silent: true });
         }
       } finally {
+        // Hide progress bar
+        this.refs.restoreProgressContainer.classList.add("hidden");
         this.refs.btnSyncSelected.disabled = false;
       }
     });
+  }
+
+  private async pollRestoreProgress(): Promise<void> {
+    const maxWait = 120 * 1000; // 120 seconds max
+    const interval = 300; // poll every 300ms
+    const start = Date.now();
+
+    while (Date.now() - start < maxWait) {
+      await this.refreshStatus({ quietError: true, silent: true });
+      const progress = this.state.status.restore_progress ?? -1;
+      if (progress >= 0) {
+        this.refs.restoreProgressBar.style.width = `${progress}%`;
+        this.refs.restoreProgressPct.textContent = `${progress}%`;
+        if (this.state.status.current_job_name) {
+          this.refs.restoreProgressLabel.textContent = this.state.status.current_job_name;
+        }
+      }
+      if (progress < 0) {
+        // Restore complete (back to idle)
+        break;
+      }
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
   }
 
   private async refreshLogs(resetCursor: boolean, options: RefreshOptions = {}): Promise<void> {
@@ -1037,36 +1077,42 @@ class FrontendShell {
   }
 
   private async downloadUpdate(): Promise<void> {
-    const assetUrl = asString(this.state.update.asset_url);
+    let assetUrl = asString(this.state.update.asset_url);
+    let assetName = asString(this.state.update.asset_name);
     if (!assetUrl) {
-      this.setBanner("error", "No update asset URL available. Please run Check Update first.");
+      await this.refreshUpdate({ quietError: true, silent: true });
+      assetUrl = asString(this.state.update.asset_url);
+      assetName = asString(this.state.update.asset_name);
+    }
+    if (!assetUrl) {
+      this.setBanner("error", "No downloadable installer found in the latest release.");
       return;
     }
 
     const payload = JSON.stringify({
       asset_url: assetUrl,
-      asset_name: asString(this.state.update.asset_name)
+      asset_name: assetName
     });
 
     await this.withInFlight("mutate:download-update", async () => {
-      this.refs.btnDownloadUpdate.disabled = true;
+      this.renderUpdate();
       try {
         const result = await this.invoke("download-update", payload);
         if (result.ok && result.success) {
           const data = asRecord(result.data);
           const destination = asString(data?.destination_path);
-          this.setBanner("success", destination ? `Download started: ${destination}` : "Download started.");
+          this.setBanner("success", destination ? `Downloading update, installer will open automatically: ${destination}` : "Downloading update, installer will open automatically.");
           await this.refreshUpdate({ quietError: true, silent: true });
         }
       } finally {
-        this.refs.btnDownloadUpdate.disabled = false;
+        this.renderUpdate();
       }
     });
   }
 
   private async forceDownloadLatest(): Promise<void> {
     await this.withInFlight("mutate:force-download-latest", async () => {
-      this.refs.btnForceDownloadLatest.disabled = true;
+      this.renderUpdate();
       try {
         // Always refresh latest release first to force using current latest asset URL.
         const check = await this.invoke("check-update", "", { quietError: true });
@@ -1098,7 +1144,7 @@ class FrontendShell {
         if (result.ok && result.success) {
           const data = asRecord(result.data);
           const destination = asString(data?.destination_path);
-          this.setBanner("success", destination ? `Force download started: ${destination}` : "Force download started.");
+          this.setBanner("success", destination ? `Downloading latest installer, it will open automatically: ${destination}` : "Downloading latest installer, it will open automatically.");
           await this.refreshUpdate({ quietError: true, silent: true });
         }
       } finally {
