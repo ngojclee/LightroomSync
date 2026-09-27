@@ -60,11 +60,37 @@
 }
 
 @layer base {
+  html, body {
+    /* Transparent — frameless translucent window; .lrs-shell paints the
+       real surface so rounded corners reveal the OS backdrop (Mica). */
+    background: transparent;
+  }
   body {
-    @apply bg-surface text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container overflow-hidden;
+    @apply text-on-surface font-body selection:bg-primary-container selection:text-on-primary-container overflow-hidden;
     /* Force dark mode for now as base */
     color-scheme: dark;
   }
+
+  /* Rounded frameless shell — transform makes it the containing block so the
+     fixed-positioned sidebar/header still pin to its edges. */
+  .lrs-shell {
+    position: relative;
+    height: 100vh;
+    width: 100%;
+    overflow: hidden;
+    transform: translateZ(0);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: var(--color-surface, #131314);
+  }
+  body.win-max .lrs-shell {
+    border-radius: 0;
+    border-color: transparent;
+  }
+
+  /* Wails drag regions */
+  .lrs-drag { --wails-draggable: drag; }
+  .lrs-nodrag { --wails-draggable: no-drag; }
 }
 
 @layer components {

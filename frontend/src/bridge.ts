@@ -18,6 +18,7 @@ interface WailsMethodMap {
   SetMinimizeToTray?: (enabled: boolean) => Promise<void> | void;
   HideToTray?: () => Promise<void> | void;
   MinimiseWindow?: () => Promise<void> | void;
+  ToggleMaximise?: () => Promise<void> | void;
   ShowWindow?: () => Promise<void> | void;
 }
 
