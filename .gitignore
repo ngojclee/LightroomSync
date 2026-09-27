@@ -38,3 +38,7 @@ desktop.ini
 # Temp
 temp_scripts/
 *.log
+
+# Agent session state
+.omx/
+.claude/
