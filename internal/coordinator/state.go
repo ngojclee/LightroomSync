@@ -27,6 +27,8 @@ type AppState struct {
 	lastResumeGapSeconds   int
 	autoSync               bool
 	criticalError          string
+	restoreProgress        int    // 0-100 during restore, -1 when idle
+	currentJobName         string // name of the currently running job
 }
 
 func NewAppState() *AppState {
@@ -57,6 +59,8 @@ func (s *AppState) Snapshot() ipc.AppStatus {
 		LastResumeGapSeconds:   s.lastResumeGapSeconds,
 		AutoSync:               s.autoSync,
 		CriticalError:          s.criticalError,
+		RestoreProgress:        s.restoreProgress,
+		CurrentJobName:         s.currentJobName,
 	}
 }
 
@@ -127,6 +131,18 @@ func (s *AppState) SetAutoSync(v bool) {
 	s.autoSync = v
 }
 
+func (s *AppState) SetRestoreProgress(progress int) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.restoreProgress = progress
+}
+
+func (s *AppState) SetCurrentJobName(name string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.currentJobName = name
+}
+
 func (s *AppState) IncLightroomMonitorError() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -181,7 +197,11 @@ func (s *AppState) recomputeDerivedStatusLocked() {
 		s.statusText = s.criticalError
 	case s.syncInProgress:
 		s.trayColor = "red"
-		s.statusText = "Syncing..."
+		if s.currentJobName != "" {
+			s.statusText = "Syncing: " + s.currentJobName
+		} else {
+			s.statusText = "Syncing..."
+		}
 	case s.syncPaused:
 		s.trayColor = "orange"
 		s.statusText = "Sync Paused"

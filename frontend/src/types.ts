@@ -29,6 +29,8 @@ export interface AppStatus {
   lock_monitor_errors?: number;
   last_resume_gap_seconds?: number;
   auto_sync?: boolean;
+  restore_progress?: number;
+  current_job_name?: string;
 }
 
 export interface ConfigSnapshot {

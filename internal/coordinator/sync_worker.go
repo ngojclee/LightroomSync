@@ -144,6 +144,8 @@ func (w *SyncWorker) waitUntilResumed(ctx context.Context) bool {
 
 func (w *SyncWorker) process(ctx context.Context, job SyncJob) {
 	w.state.SetSyncing(true)
+	w.state.SetCurrentJobName(job.Name)
+	w.state.SetRestoreProgress(0)
 	w.bus.Emit(InternalEvent{Type: EvtSyncRequested, Payload: job.Name})
 
 	stopWatch := func() {}
@@ -170,6 +172,8 @@ func (w *SyncWorker) process(ctx context.Context, job SyncJob) {
 			},
 		})
 		w.state.SetSyncing(false)
+		w.state.SetRestoreProgress(-1)
+		w.state.SetCurrentJobName("")
 		return
 	}
 
@@ -180,4 +184,6 @@ func (w *SyncWorker) process(ctx context.Context, job SyncJob) {
 		},
 	})
 	w.state.SetSyncing(false)
+	w.state.SetRestoreProgress(-1)
+	w.state.SetCurrentJobName("")
 }

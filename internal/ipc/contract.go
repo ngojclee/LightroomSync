@@ -97,6 +97,9 @@ type AppStatus struct {
 	LastResumeGapSeconds   int    `json:"last_resume_gap_seconds"`
 	AutoSync               bool   `json:"auto_sync"`
 	CriticalError          string `json:"critical_error,omitempty"`
+	// RestoreProgress is 0-100 percentage during restore, -1 when idle.
+	RestoreProgress int    `json:"restore_progress"`
+	CurrentJobName  string `json:"current_job_name,omitempty"`
 }
 
 // BackupInfo describes a single backup zip file.
