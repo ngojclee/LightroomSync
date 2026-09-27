@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -33,6 +34,30 @@ var Version = "dev"
 
 var downloadedUpdateVersionPattern = regexp.MustCompile(`(?i)lightroomsync.*v?(\d+(?:\.\d+){2,3}).*\.(exe|msi)$`)
 
+// Tray icon variants — base icon with a status-dot overlay.
+var (
+	//go:embed tray_green.ico
+	trayIconGreen []byte
+	//go:embed tray_blue.ico
+	trayIconBlue []byte
+	//go:embed tray_orange.ico
+	trayIconOrange []byte
+	//go:embed tray_red.ico
+	trayIconRed []byte
+	//go:embed tray_gray.ico
+	trayIconGray []byte
+)
+
+func trayIcons() map[string][]byte {
+	return map[string][]byte{
+		"green":  trayIconGreen,
+		"blue":   trayIconBlue,
+		"orange": trayIconOrange,
+		"red":    trayIconRed,
+		"gray":   trayIconGray,
+	}
+}
+
 func main() {
 	minimized := flag.Bool("minimized", false, "Start minimized to tray")
 	showVersion := flag.Bool("version", false, "Print version and exit")
@@ -61,6 +86,13 @@ func main() {
 	cfgPath, err := config.DefaultPath()
 	if err != nil {
 		log.Fatalf("Config path error: %v", err)
+	}
+
+	// The agent runs with the windowsgui subsystem (no console), so mirror
+	// logs to agent.log next to the config for post-mortem debugging.
+	if logFile, ferr := os.OpenFile(filepath.Join(filepath.Dir(cfgPath), "agent.log"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644); ferr == nil {
+		log.SetOutput(io.MultiWriter(os.Stderr, logstream.NewWriter(logBuffer), logFile))
+		defer logFile.Close()
 	}
 
 	cfgMgr := config.NewManager(cfgPath)
@@ -92,10 +124,6 @@ func main() {
 	appState.SetAutoSync(cfg.AutoSync)
 	if migrationHint != "" {
 		appState.SetMigrationHint(migrationHint)
-	}
-	trayStatusPath, trayStatusErr := tray.DefaultStatusPath()
-	if trayStatusErr != nil {
-		log.Printf("[WARN] Tray status path unavailable: %v", trayStatusErr)
 	}
 	presetLocalRoot, presetRootErr := syncpkg.DefaultLightroomPresetRoot()
 	if presetRootErr != nil {
@@ -147,34 +175,6 @@ func main() {
 	startManaged(ctx, &wg, "operation-watchdog", func(ctx context.Context) {
 		watchdog.Run(ctx)
 	})
-	if strings.TrimSpace(trayStatusPath) != "" {
-		startManaged(ctx, &wg, "tray-status-publisher", func(ctx context.Context) {
-			writeTraySnapshot := func() {
-				snap := appState.Snapshot()
-				err := tray.WriteStatus(trayStatusPath, tray.StatusPayload{
-					StatusText:     snap.StatusText,
-					TrayColor:      snap.TrayColor,
-					SyncInProgress: snap.SyncInProgress,
-					SyncPaused:     snap.SyncPaused,
-					AutoSync:       snap.AutoSync,
-				})
-				if err != nil {
-					log.Printf("[WARN] Failed to publish tray status snapshot: %v", err)
-				}
-			}
-			writeTraySnapshot()
-			ticker := time.NewTicker(1 * time.Second)
-			defer ticker.Stop()
-			for {
-				select {
-				case <-ctx.Done():
-					return
-				case <-ticker.C:
-					writeTraySnapshot()
-				}
-			}
-		})
-	}
 
 	enqueuePresetSync := func(trigger string) {
 		current := cfgMgr.Get()
@@ -463,6 +463,63 @@ func main() {
 
 	// --- Start IPC server (UI <-> Agent) ---
 	shutdownCh := make(chan struct{}, 1)
+	// enqueueSyncNow queues a "restore latest backup" job — shared by the IPC
+	// sync_now command and the native tray "Sync Now" menu item.
+	enqueueSyncNow := func() error {
+		current := cfgMgr.Get()
+		if strings.TrimSpace(current.BackupFolder) == "" || strings.TrimSpace(current.CatalogPath) == "" {
+			return errors.New("backup/catalog paths are not configured")
+		}
+		jobName := "Syncing latest backup"
+		appState.SetCurrentJobName(jobName)
+		appState.SetRestoreProgress(0)
+		log.Printf("[INFO] Sync now started: backup_folder=%s", current.BackupFolder)
+		return syncWorker.Enqueue(coordinator.SyncJob{
+			Name:           jobName,
+			OperationID:    "manual_sync_now",
+			MaxRunDuration: 120 * time.Second,
+			Execute: func(ctx context.Context) error {
+				backups, err := monitor.ListZipBackups(ctx, current.BackupFolder)
+				if err != nil {
+					log.Printf("[ERROR] Sync now failed to list backups: %v", err)
+					return err
+				}
+				if len(backups) == 0 {
+					log.Printf("[ERROR] Sync now: no backup zip found")
+					return errors.New("no backup zip found")
+				}
+				zipPath := backups[0].Path
+				log.Printf("[INFO] Sync now: restoring latest backup %s", zipPath)
+				err = syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.RestoreOptions{
+					FlattenSingleRoot: true,
+					CleanupPatterns: []string{
+						"*.lrcat",
+						"*.lrcat-data",
+						"*.lrcat-journal",
+						"*.lrcat.lock",
+						"*.lrdata",
+						"lightroom_lock.txt",
+						"*-lock",
+						"*-shm",
+						"*-wal",
+					},
+					Progress: func(current, total int) bool {
+						if total > 0 {
+							appState.SetRestoreProgress(current * 100 / total)
+						}
+						return ctx.Err() == nil
+					},
+				})
+				if err != nil {
+					log.Printf("[ERROR] Sync now restore failed: %v", err)
+					return err
+				}
+				log.Printf("[INFO] Sync now completed: restored %s", zipPath)
+				return nil
+			},
+		})
+	}
+
 	ipcServer := ipc.NewServer(ipc.PipeName, ipc.DefaultRequestTimeout, func(reqCtx context.Context, req ipc.Request) ipc.Response {
 		switch req.Command {
 		case ipc.CmdPing:
@@ -740,69 +797,12 @@ func main() {
 				Code: ipc.CodeOK,
 			}
 		case ipc.CmdSyncNow:
-			current := cfgMgr.Get()
-			if strings.TrimSpace(current.BackupFolder) == "" || strings.TrimSpace(current.CatalogPath) == "" {
-				return ipc.Response{
-					Success: false,
-					Error:   "backup/catalog paths are not configured",
-					Code:    ipc.CodeBadRequest,
+			if err := enqueueSyncNow(); err != nil {
+				code := ipc.CodeInternalError
+				if strings.Contains(err.Error(), "not configured") {
+					code = ipc.CodeBadRequest
 				}
-			}
-
-			jobName := "Syncing latest backup"
-			appState.SetCurrentJobName(jobName)
-			appState.SetRestoreProgress(0)
-			log.Printf("[INFO] Sync now started: backup_folder=%s", current.BackupFolder)
-			err := syncWorker.Enqueue(coordinator.SyncJob{
-				Name:           jobName,
-				OperationID:    "manual_sync_now",
-				MaxRunDuration: 120 * time.Second,
-				Execute: func(ctx context.Context) error {
-					backups, err := monitor.ListZipBackups(ctx, current.BackupFolder)
-					if err != nil {
-						log.Printf("[ERROR] Sync now failed to list backups: %v", err)
-						return err
-					}
-					if len(backups) == 0 {
-						log.Printf("[ERROR] Sync now: no backup zip found")
-						return errors.New("no backup zip found")
-					}
-					zipPath := backups[0].Path
-					log.Printf("[INFO] Sync now: restoring latest backup %s", zipPath)
-					err = syncpkg.RestoreCatalogFromZip(ctx, zipPath, current.CatalogPath, syncpkg.RestoreOptions{
-						FlattenSingleRoot: true,
-						CleanupPatterns: []string{
-							"*.lrcat",
-							"*.lrcat-data",
-							"*.lrcat-journal",
-							"*.lrcat.lock",
-							"*.lrdata",
-							"lightroom_lock.txt",
-							"*-lock",
-							"*-shm",
-							"*-wal",
-						},
-						Progress: func(current, total int) bool {
-							if total > 0 {
-								appState.SetRestoreProgress(current * 100 / total)
-							}
-							return ctx.Err() == nil
-						},
-					})
-					if err != nil {
-						log.Printf("[ERROR] Sync now restore failed: %v", err)
-						return err
-					}
-					log.Printf("[INFO] Sync now completed: restored %s", zipPath)
-					return nil
-				},
-			})
-			if err != nil {
-				return ipc.Response{
-					Success: false,
-					Error:   err.Error(),
-					Code:    ipc.CodeInternalError,
-				}
+				return ipc.Response{Success: false, Error: err.Error(), Code: code}
 			}
 			return ipc.Response{
 				Success: true,
@@ -953,25 +953,39 @@ func main() {
 		}
 	})
 
-	// --- Start tray host ---
+	// --- Native Win32 tray icon (replaces the old PowerShell tray host — the
+	// menu renders with OS styling, e.g. rounded corners on Windows 11) ---
 	uiExecutable := resolveUIExecutable(exePath)
-	trayManager := tray.NewManager(tray.Options{
-		AppName:      "Lightroom Sync",
-		AgentPID:     os.Getpid(),
-		UIExecutable: uiExecutable,
-		PipeName:     ipc.PipeName,
-		StatusPath:   trayStatusPath,
+	startManaged(ctx, &wg, "native-tray", func(ctx context.Context) {
+		tray.RunNative(ctx, tray.NativeOpts{
+			AppName: "Lightroom Sync",
+			Icons:   trayIcons(),
+			StatusFunc: func() (string, string, bool, bool) {
+				snap := appState.Snapshot()
+				return snap.StatusText, snap.TrayColor, snap.SyncInProgress, snap.SyncPaused
+			},
+			OnOpenUI: func() {
+				if uiExecutable == "" {
+					return
+				}
+				if err := exec.Command(uiExecutable).Start(); err != nil {
+					log.Printf("[WARN] open UI from tray failed: %v", err)
+				}
+			},
+			OnSyncNow: func() {
+				if err := enqueueSyncNow(); err != nil {
+					log.Printf("[WARN] tray sync_now failed: %v", err)
+					appState.SetWarning("Sync Now failed: " + err.Error())
+				}
+			},
+			OnExit: func() {
+				select {
+				case shutdownCh <- struct{}{}:
+				default:
+				}
+			},
+		})
 	})
-	if err := trayManager.Start(ctx); err != nil {
-		log.Printf("[WARN] Tray bootstrap failed: %v", err)
-	} else {
-		log.Printf("[INFO] Tray bootstrap started (ui=%s)", uiExecutable)
-	}
-	defer func() {
-		if err := trayManager.Stop(); err != nil {
-			log.Printf("[WARN] Tray shutdown error: %v", err)
-		}
-	}()
 
 	log.Printf("[INFO] LightroomSync Agent %s started (minimized=%v)", Version, *minimized)
 	log.Printf("[INFO] Config: %s", cfgPath)
