@@ -1,7 +1,8 @@
 export const appTemplate = `
+<div class="lrs-shell">
 <!-- SideNavBar -->
 <aside class="h-screen w-64 fixed left-0 top-0 bg-[#0e0e0f]/80 backdrop-blur-xl flex flex-col py-8 shadow-[40px_0_40px_-20px_rgba(123,44,191,0.1)] z-50 transition-colors">
-  <div class="px-6 mb-10">
+  <div class="px-6 mb-10 lrs-drag">
     <h1 class="text-xl font-bold bg-gradient-to-br from-[#7B2CBF] to-[#deb7ff] bg-clip-text text-transparent font-headline tracking-tight">LightroomSync</h1>
     <p class="text-xs text-on-surface-variant/50 font-label mt-1">Creative Suite</p>
   </div>
@@ -45,7 +46,7 @@ export const appTemplate = `
 </aside>
 
 <!-- TopNavBar -->
-<header class="h-16 fixed top-0 right-0 left-64 z-40 flex items-center justify-between px-8 bg-[#131314]/60 backdrop-blur-md no-border bg-gradient-to-b from-[#131314] to-transparent">
+<header class="h-16 fixed top-0 right-0 left-64 z-40 flex items-center justify-between px-8 bg-[#131314]/60 backdrop-blur-md no-border bg-gradient-to-b from-[#131314] to-transparent lrs-drag">
   <div class="flex items-center space-x-4 w-1/3">
     <span class="text-on-surface/40 text-xs font-label">System / Dashboard / <span class="text-on-surface" id="view-title">Status</span></span>
   </div>
@@ -56,7 +57,17 @@ export const appTemplate = `
         <span class="text-on-surface-variant">Last: <strong id="last-refresh">-</strong></span>
     </div>
   </div>
-  <div class="w-1/3 flex justify-end"></div>
+  <div class="w-1/3 flex justify-end items-center gap-1 lrs-nodrag">
+    <button id="btn-win-min" class="w-9 h-7 rounded-md flex items-center justify-center text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors" title="Minimize">
+      <span class="material-symbols-outlined text-base">remove</span>
+    </button>
+    <button id="btn-win-max" class="w-9 h-7 rounded-md flex items-center justify-center text-on-surface-variant hover:bg-white/10 hover:text-on-surface transition-colors" title="Maximize">
+      <span class="material-symbols-outlined text-base">crop_square</span>
+    </button>
+    <button id="btn-win-close" class="w-9 h-7 rounded-md flex items-center justify-center text-on-surface-variant hover:bg-error hover:text-white transition-colors" title="Close">
+      <span class="material-symbols-outlined text-base">close</span>
+    </button>
+  </div>
 </header>
 
 <div id="banner" class="fixed top-20 right-8 z-50 p-4 rounded-lg shadow-lg flex items-center gap-3 transition-transform banner-hidden hidden max-w-md">
@@ -423,5 +434,6 @@ export const appTemplate = `
   <div class="absolute bottom-0 right-0 w-[500px] h-[500px] bg-primary-container/10 blur-[150px] -z-10 rounded-full opacity-30 pointer-events-none"></div>
   <div class="absolute top-0 left-0 w-[300px] h-[300px] bg-secondary-container/5 blur-[120px] -z-10 rounded-full opacity-20 pointer-events-none"></div>
 </main>
+</div>
 `;
 

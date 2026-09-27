@@ -25,6 +25,7 @@ func launchWailsRuntime(pipeName string) error {
 	app := NewWailsApp(pipeName)
 	appOptions := &options.App{
 		Title:     "Lightroom Sync",
+		Frameless: true, // in-app titlebar buttons; native caption hidden
 		MinWidth:  980,
 		MinHeight: 700,
 		Width:     1240,

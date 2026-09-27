@@ -1,4 +1,5 @@
 import { executeAction, selectDirectory, selectFile, exitApplication, launchAgent, syncMinimizeToTray, discoverPresets, getAppInfo } from "./bridge";
+import { WindowIsMaximised } from "../wailsjs/runtime/runtime";
 import { appTemplate } from "./template";
 import type {
   ActionEnvelope,
@@ -492,6 +493,15 @@ class FrontendShell {
         }
       });
     });
+
+    // --- Window controls (frameless titlebar) ---
+    const go = window.go?.main?.WailsApp;
+    document.getElementById("btn-win-min")?.addEventListener("click", () => void go?.MinimiseWindow?.());
+    document.getElementById("btn-win-max")?.addEventListener("click", async () => {
+      void go?.ToggleMaximise?.();
+      setTimeout(syncMaxClass, 150);
+    });
+    document.getElementById("btn-win-close")?.addEventListener("click", () => void go?.HideToTray?.());
 
     // --- Lifecycle button ---
     this.refs.btnExitApp.addEventListener("click", () => {
@@ -1228,6 +1238,16 @@ class FrontendShell {
     }
   }
 }
+
+// Rounded corners only while the window floats — square chrome when
+// maximised/snapped, matching Windows conventions for frameless apps.
+async function syncMaxClass(): Promise<void> {
+  try {
+    document.body.classList.toggle("win-max", await WindowIsMaximised());
+  } catch { /* browser preview — no wails runtime */ }
+}
+window.addEventListener("resize", () => { void syncMaxClass(); });
+void syncMaxClass();
 
 export function mountApp(root: HTMLElement): void {
   // Wave 3 baseline shell: fully rendered tabs with offline-safe behavior.
