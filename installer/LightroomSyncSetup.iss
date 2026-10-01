@@ -42,9 +42,9 @@ PrivilegesRequired=admin
 WizardStyle=modern
 UsePreviousAppDir=yes
 UsePreviousTasks=yes
-CloseApplications=yes
+CloseApplications=force
 RestartApplications=no
-AppMutex=LightroomSyncAgent_Mutex
+AppMutex=LightroomSyncAgent_Mutex,LightroomSyncUI_Mutex
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -62,10 +62,13 @@ Name: "{autoprograms}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; Workin
 Name: "{autodesktop}\Lightroom Sync"; Filename: "{app}\{#UIBinaryName}"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Registry]
-Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "LightroomSync"; ValueData: """{app}\LightroomSyncAgent.exe"" --minimized"; Flags: uninsdeletevalue
+; Remove the stale HKLM autostart value older installers wrote — startup is
+; owned by the agent's "Start with Windows" setting (HKCU Run key).
+Root: HKA; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueName: "LightroomSync"; Flags: deletevalue
 
 [Run]
 Filename: "{app}\{#UIBinaryName}"; Description: "Launch Lightroom Sync"; Flags: nowait postinstall skipifsilent runasoriginaluser
+Filename: "{app}\LightroomSyncAgent.exe"; Parameters: "--minimized"; Description: "Start Lightroom Sync Agent"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
 [Code]
 function TryStopProcess(const ImageName: string; const ForceKill: Boolean): Boolean;
